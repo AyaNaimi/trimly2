@@ -321,50 +321,52 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 24 },
-  progressWrap: { flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 28 },
+  container: { flex: 1, backgroundColor: Colors.bg, paddingHorizontal: 20 },
+  progressWrap: { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 28 },
   dot: { height: 5, flex: 1, borderRadius: 100, backgroundColor: Colors.border },
   dotDone: { backgroundColor: Colors.purple },
   dotActive: { backgroundColor: Colors.purple, flex: 2 },
   content: { flex: 1 },
-  h1: { fontSize: 26, fontWeight: '800', color: Colors.text, letterSpacing: -0.5, marginBottom: 8 },
-  sub: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20, marginBottom: 4 },
+  h1: { fontSize: 28, fontWeight: '700', color: Colors.text, letterSpacing: -0.5, marginBottom: 10 },
+  sub: { fontSize: 15, color: Colors.textSecondary, lineHeight: 22, marginBottom: 6 },
 
   // Categories
-  groupLbl: { fontSize: 14, fontWeight: '800', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  groupLbl: { fontSize: 13, fontWeight: '700', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.8, color: Colors.textSecondary },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100,
-    borderWidth: 2, borderColor: Colors.border, backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white,
   },
-  chipText: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  chipText: { fontSize: 14, fontWeight: '700', color: Colors.text },
 
   // Budgets
   suggestCard: {
-    backgroundColor: Colors.bg, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: 12,
+    backgroundColor: Colors.white, borderRadius: 14, padding: 16,
+    borderWidth: 1.5, borderColor: Colors.border, marginBottom: 14,
   },
   input: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
+    backgroundColor: Colors.bgSecondary, borderRadius: 10, padding: 12,
     fontSize: 15, fontWeight: '600', borderWidth: 1.5, borderColor: Colors.border, color: Colors.text,
   },
   suggestBtn: {
-    backgroundColor: Colors.purpleLight, borderRadius: 12,
+    backgroundColor: Colors.purpleXLight, borderRadius: 10,
     paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: Colors.purpleLight,
   },
   currencyRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: Colors.bg, borderRadius: 12, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.white, borderRadius: 14, padding: 16, marginBottom: 14,
+    borderWidth: 1.5, borderColor: Colors.border,
   },
-  budgetGroupHdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  budgetGroupHdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   budgetRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.bg, borderRadius: 12, padding: 12, marginBottom: 8,
+    backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8,
+    borderWidth: 1.5, borderColor: Colors.border,
   },
   budgetInput: {
-    backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: Colors.bgSecondary, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8,
     fontSize: 15, fontWeight: '700', borderWidth: 1.5, borderColor: Colors.border,
     width: 80, textAlign: 'right', color: Colors.text,
   },
@@ -372,30 +374,30 @@ const styles = StyleSheet.create({
   // Notifications
   notifOpt: {
     flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16,
-    borderRadius: 16, borderWidth: 2, borderColor: Colors.border, backgroundColor: '#fff',
+    borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white,
   },
-  notifOptSel: { borderColor: Colors.purple, backgroundColor: Colors.purpleXLight },
+  notifOptSel: { borderColor: Colors.purple, borderWidth: 2, backgroundColor: Colors.purpleXLight },
   notifEmoji: {
-    width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.bg,
+    width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.bgSecondary,
   },
-  notifPreview: { marginTop: 20 },
+  notifPreview: { marginTop: 24 },
   notifPreviewCard: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
+    backgroundColor: Colors.white, borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: Colors.border,
   },
   notifPreviewIcon: {
-    width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.purpleLight,
+    width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.purpleXLight,
     alignItems: 'center', justifyContent: 'center',
   },
 
   // Trial
   trialItemIcon: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: Colors.purpleLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.purpleXLight, alignItems: 'center', justifyContent: 'center',
   },
 
   // Nav
-  navRow: { flexDirection: 'row', gap: 12, paddingBottom: 12, paddingTop: 16 },
+  navRow: { flexDirection: 'row', gap: 12, paddingBottom: 16, paddingTop: 16 },
 });
