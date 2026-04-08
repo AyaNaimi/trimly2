@@ -1,401 +1,466 @@
-// src/screens/Onboarding/OnboardingScreen.js
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StyleSheet, SafeAreaView, Animated, Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  TextInput,
+  Dimensions,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Colors, Fonts, Radius, Spacing } from '../../theme';
-import { ONBOARDING_CAT_GROUPS, CATEGORY_COLORS, DEFAULT_CATEGORIES } from '../../data/initialData';
-import { PrimaryButton, SecondaryButton } from '../../components';
+import { Colors, Fonts, Layout, Radius, Shadow } from '../../theme';
+import { PremiumHaptics } from '../../utils/haptics';
 import { useApp } from '../../context/AppContext';
-import { requestNotificationPermissions } from '../../utils/notifications';
 
-const { width: W } = Dimensions.get('window');
-const TOTAL_STEPS = 5;
+const { width } = Dimensions.get('window');
 
-export default function OnboardingScreen() {
-  const { dispatch } = useApp();
-  const [step, setStep] = useState(0);
-  const [selectedCats, setSelectedCats] = useState(['Courses', 'Restaurants', 'Transport']);
-  const [budgets, setBudgets] = useState({});
-  const [income, setIncome] = useState('');
-  const [notifLevel, setNotifLevel] = useState(0);
-  const slideX = useRef(new Animated.Value(0)).current;
+const ONBOARDING_CAT_GROUPS = [
+  {
+    label: 'Maison & Alimentation',
+    items: [
+      { name: 'Loyer/Prêt', icon: '🏠' },
+      { name: 'Courses', icon: '🛒' },
+      { name: 'Restaurant', icon: '🍕' },
+      { name: 'Factures', icon: '⚡' },
+    ],
+  },
+  {
+    label: 'Mobilité & Voyage',
+    items: [
+      { name: 'Transport', icon: '🚆' },
+      { name: 'Carburant', icon: '⛽' },
+      { name: 'Voyage', icon: '✈️' },
+    ],
+  },
+  {
+    label: 'Loisirs & Style de vie',
+    items: [
+      { name: 'Sorties', icon: '🎬' },
+      { name: 'Abonnements', icon: '📱' },
+      { name: 'Shopping', icon: '👕' },
+      { name: 'Sport', icon: '💪' },
+    ],
+  },
+  {
+    label: 'Finance & Bien-être',
+    items: [
+      { name: 'Santé', icon: '🏥' },
+      { name: 'Épargne', icon: '📈' },
+      { name: 'Imprévus', icon: '🆘' },
+      { name: 'Cadeaux', icon: '🎁' },
+    ],
+  },
+];
 
-  const steps = ['Catégories', 'Budgets', 'Notifications', 'Essai'];
+// ── Sub-components moved outside to fix focus loss ──
 
-  function goNext() {
-    Haptics.selectionAsync();
-    Animated.timing(slideX, { toValue: -W, duration: 250, useNativeDriver: true }).start(() => {
-      slideX.setValue(W);
-      setStep(s => s + 1);
-      Animated.timing(slideX, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-    });
-  }
+const Progress = ({ step }) => (
+  <View style={styles.progressContainer}>
+    {[0, 1, 2].map((i) => (
+      <View 
+        key={i} 
+        style={[
+          styles.progressDot, 
+          step === i && { backgroundColor: Colors.accent, width: 20 }
+        ]} 
+      />
+    ))}
+  </View>
+);
 
-  function goBack() {
-    Haptics.selectionAsync();
-    Animated.timing(slideX, { toValue: W, duration: 250, useNativeDriver: true }).start(() => {
-      slideX.setValue(-W);
-      setStep(s => s - 1);
-      Animated.timing(slideX, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-    });
-  }
-
-  function toggleCat(name) {
-    Haptics.selectionAsync();
-    setSelectedCats(prev =>
-      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-    );
-  }
-
-  function suggestBudgets() {
-    const inc = parseFloat(income) || 2500;
-    const ratios = {
-      Loyer: 0.30, Courses: 0.12, Restaurants: 0.08, Transport: 0.05,
-      Santé: 0.03, Loisirs: 0.05, Shopping: 0.07, Café: 0.02,
-      Sport: 0.03, Épargne: 0.15, Électricité: 0.04, Forfait: 0.02,
-    };
-    const suggested = {};
-    selectedCats.forEach(name => {
-      const key = Object.keys(ratios).find(k => name.includes(k));
-      suggested[name] = key ? Math.round(inc * ratios[key]) : 50;
-    });
-    setBudgets(suggested);
-  }
-
-  async function finish() {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await requestNotificationPermissions();
-
-    // Build categories from selected
-    const cats = selectedCats.map((name, i) => {
-      const existing = DEFAULT_CATEGORIES.find(c => c.name.toLowerCase() === name.toLowerCase());
-      return {
-        id: `cat_${Date.now()}_${i}`,
-        name,
-        icon: existing?.icon || '💰',
-        color: existing?.color || CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-        budget: parseFloat(budgets[name]) || 0,
-        spent: 0,
-        cycle: existing?.cycle || 'monthly',
-      };
-    });
-
-    dispatch({ type: 'SET_CATEGORIES', payload: cats });
-    dispatch({ type: 'SET_NOTIF_LEVEL', payload: notifLevel });
-    if (income) dispatch({ type: 'SET_INCOME', payload: parseFloat(income) });
-    dispatch({ type: 'COMPLETE_ONBOARDING' });
-  }
-
-  // ── Step 0: Categories (like Luna) ──
-  const StepCategories = () => (
-    <View style={{ flex: 1 }}>
-      <Text style={styles.h1}>Créons des catégories</Text>
-      <Text style={styles.sub}>Suggestions pour vous (modifiables plus tard)</Text>
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, marginTop: 16 }}>
-        {ONBOARDING_CAT_GROUPS.map(group => (
-          <View key={group.label} style={{ marginBottom: 20 }}>
-            <Text style={[styles.groupLbl, { color: group.color }]}>{group.label}</Text>
-            <View style={styles.chipWrap}>
-              {group.items.map(item => {
-                const sel = selectedCats.includes(item.name);
-                return (
-                  <Pressable
-                    key={item.name}
-                    onPress={() => toggleCat(item.name)}
-                    style={[styles.chip, sel && { backgroundColor: Colors.pink, borderColor: Colors.pink }]}
-                  >
-                    <Text style={{ fontSize: 16 }}>{item.icon}</Text>
-                    <Text style={[styles.chipText, sel && { color: '#fff' }]}>{item.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+const StepCategories = ({ selectedCats, toggleCat }) => (
+  <View style={[styles.unifiedCard, { margin: 10 }]}>
+    <Text style={[styles.h1, { ...Fonts.serif, marginBottom: 8 }]}>Votre style analytique</Text>
+    <Text style={[styles.sub, { marginBottom: 24 }]}>Identifiez les flux qui structurent votre quotidien financier.</Text>
+    
+    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+      {ONBOARDING_CAT_GROUPS.map(group => (
+        <View key={group.label} style={{ marginBottom: 32 }}>
+          <Text style={styles.groupLbl}>{group.label}</Text>
+          <View style={styles.chipWrap}>
+            {group.items.map(item => {
+              const sel = selectedCats.includes(item.name);
+              return (
+                <Pressable
+                  key={item.name}
+                  onPress={() => toggleCat(item.name)}
+                  style={[styles.chip, sel && styles.chipSel]}
+                >
+                  <Text style={{ fontSize: 20 }}>{item.icon}</Text>
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{item.name}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        ))}
-        <View style={{ height: 20 }} />
-      </ScrollView>
-    </View>
-  );
+        </View>
+      ))}
+    </ScrollView>
+  </View>
+);
 
-  // ── Step 1: Budget allocation (like Luna) ──
-  const StepBudgets = () => (
-    <View style={{ flex: 1 }}>
-      <Text style={styles.h1}>Allouez un budget</Text>
-      <View style={styles.suggestCard}>
-        <Text style={{ fontSize: 13, color: Colors.textSecondary }}>
-          🤔 Pas sûr des montants ? Entrez votre revenu et on vous suggère.
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+const BudgetRow = ({ name, value, onValueChange, icon }) => {
+  const inputRef = useRef(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleRowPress = () => {
+    PremiumHaptics.selection();
+    inputRef.current?.focus();
+  };
+
+  return (
+    <Pressable onPress={handleRowPress} style={styles.budgetRow}>
+      <View style={styles.budgetIcon}><Text style={{ fontSize: 18 }}>{icon || '💰'}</Text></View>
+      <Text style={styles.budgetName}>{name}</Text>
+      <View style={{ 
+        borderBottomWidth: 2, 
+        borderBottomColor: isFocused ? Colors.accent : Colors.borderStrong, 
+        width: 80
+      }}>
+        <TextInput
+          ref={inputRef}
+          style={[styles.budgetInput, { ...Fonts.serif, textAlign: 'center', width: '100%' }]}
+          value={value ? String(value) : ''}
+          onChangeText={(v) => { PremiumHaptics.selection(); onValueChange(v); }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          keyboardType="numeric"
+          placeholder="0"
+          placeholderTextColor={Colors.textSecondary}
+        />
+      </View>
+    </Pressable>
+  );
+};
+
+const StepBudgets = ({ income, setIncome, currency, setCurrency, selectedCats, budgets, setBudgets }) => {
+  const [isIncomeFocused, setIsIncomeFocused] = useState(false);
+  const totalAllocated = Object.values(budgets).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+  const incomeNum = parseFloat(income) || 0;
+  const allocationPercent = incomeNum > 0 ? Math.min((totalAllocated / incomeNum) * 100, 100) : 0;
+
+  return (
+    <View style={[styles.unifiedCard, { margin: 10 }]}>
+      <Text style={[styles.h1, { ...Fonts.serif, marginBottom: 8 }]}>Précision budgétaire</Text>
+      <Text style={[styles.sub, { marginBottom: 12 }]}>Définissez vos plafonds pour une gestion sans surprise.</Text>
+      
+      {/* Allocation Insights (Transparent) */}
+      <View style={{ marginBottom: 24, paddingVertical: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={{ ...Fonts.sans, fontSize: 13, color: Colors.textSecondary }}>Allocation totale</Text>
+          <Text style={{ ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.text }}>{totalAllocated} {currency} / {incomeNum} {currency}</Text>
+        </View>
+        <View style={{ height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' }}>
+          <View style={{ height: '100%', width: `${allocationPercent}%`, backgroundColor: Colors.accent }} />
+        </View>
+      </View>
+
+      <Text style={[styles.groupLbl, { marginBottom: 8 }]}>Revenu & Devise</Text>
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+        <View style={{ 
+          flex: 2,
+          borderBottomWidth: 2, 
+          borderBottomColor: isIncomeFocused ? Colors.accent : Colors.borderStrong, 
+          paddingBottom: 4
+        }}>
           <TextInput
-            style={[styles.input, { flex: 1 }]}
+            style={[styles.input, { ...Fonts.serif, fontSize: 18, height: 44, paddingHorizontal: 0 }]}
             value={income}
-            onChangeText={setIncome}
+            onChangeText={(v) => { PremiumHaptics.selection(); setIncome(v); }}
+            onFocus={() => setIsIncomeFocused(true)}
+            onBlur={() => setIsIncomeFocused(false)}
             keyboardType="numeric"
-            placeholder="Revenu mensuel (€)"
+            placeholder={`Montant (${currency})`}
             placeholderTextColor={Colors.textSecondary}
           />
-          <Pressable style={styles.suggestBtn} onPress={suggestBudgets}>
-            <Text style={{ color: Colors.purple, fontWeight: '700', fontSize: 13 }}>Suggérer →</Text>
-          </Pressable>
+        </View>
+        
+        <View style={{ flex: 1, flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+          {['MAD', '€', '$', '£'].map(c => (
+            <Pressable 
+              key={c} 
+              onPress={() => { PremiumHaptics.selection(); setCurrency(c); }}
+              style={[
+                styles.currencyBtn, 
+                currency === c && { backgroundColor: Colors.accent, borderColor: Colors.accent }
+              ]}
+            >
+              <Text style={[styles.currencyBtnText, currency === c && { color: Colors.white }]}>{c}</Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
-      {/* Currency */}
-      <View style={styles.currencyRow}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.text }}>Devise sélectionnée</Text>
-        <Text style={{ fontSize: 15, color: Colors.textSecondary, fontWeight: '600' }}>EUR €</Text>
-      </View>
-
-      {/* Weekly cats */}
-      {selectedCats.filter(n => {
-        const c = ONBOARDING_CAT_GROUPS.flatMap(g => g.items).find(i => i.name === n);
-        return c?.cycle === 'weekly';
-      }).length > 0 && (
-        <View style={{ marginBottom: 8 }}>
-          <View style={styles.budgetGroupHdr}>
-            <Text style={{ fontSize: 15, fontWeight: '800' }}>Catégories hebdo</Text>
-            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-              Total {selectedCats.filter(n => {
-                const c = ONBOARDING_CAT_GROUPS.flatMap(g => g.items).find(i => i.name === n);
-                return c?.cycle === 'weekly';
-              }).reduce((a, n) => a + (parseFloat(budgets[n]) || 0), 0).toFixed(2)} € / sem
-            </Text>
-          </View>
-        </View>
-      )}
-
+      <Text style={[styles.groupLbl, { marginTop: 12, marginBottom: 12 }]}>Détails par flux</Text>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {selectedCats.map(name => {
           const item = ONBOARDING_CAT_GROUPS.flatMap(g => g.items).find(i => i.name === name);
           return (
-            <View key={name} style={styles.budgetRow}>
-              <Text style={{ fontSize: 18 }}>{item?.icon || '💰'}</Text>
-              <Text style={{ flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '600' }}>{name}</Text>
-              <TextInput
-                style={styles.budgetInput}
-                value={budgets[name] ? String(budgets[name]) : ''}
-                onChangeText={v => setBudgets(prev => ({ ...prev, [name]: v }))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={Colors.textSecondary}
-              />
-            </View>
+            <BudgetRow 
+              key={name}
+              name={name}
+              icon={item?.icon}
+              value={budgets[name]}
+              onValueChange={v => setBudgets(prev => ({ ...prev, [name]: v }))}
+            />
           );
         })}
-        <View style={{ height: 20 }} />
       </ScrollView>
     </View>
   );
+};
 
-  // ── Step 2: Notifications (exactly like Luna) ──
-  const StepNotifications = () => {
-    const opts = [
-      { level: 0, emoji: '🤫', title: "Silencieux", desc: "Désactiver tous les rappels" },
-      { level: 1, emoji: '🤠', title: "Doux", desc: "1-2 notifications par jour" },
-      { level: 2, emoji: '😤', title: "Agressif", desc: "4-5 notifications par jour" },
-      { level: 3, emoji: '🤬', title: "Implacable", desc: "Vous allez nous haïr (10+)" },
-    ];
+const StepNotifications = ({ notifLevel, setNotifLevel }) => {
+  const opts = [
+    { level: 0, emoji: '🤫', title: "Le Concierge", desc: "Discret et efficace. Luna ne vous alerte que pour les flux critiques." },
+    { level: 1, emoji: '🤠', title: "Le Coach", desc: "Un accompagnement quotidien positif pour garder le cap." },
+    { level: 2, emoji: '😤', title: "La Rigueur", desc: "Zéro latence. Un suivi précis de chaque écart budgétaire." },
+    { level: 3, emoji: '🤬', title: "L'Intransigeant", desc: "Luna devient votre garde-fou pour une discipline absolue." },
+  ];
 
-    return (
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.h1, { textAlign: 'center' }]}>Besoin de rappels ?</Text>
-        <Text style={[styles.sub, { textAlign: 'center' }]}>
-          Rappels de dépenses + alertes prélèvements
-        </Text>
-        <View style={{ gap: 10, marginTop: 20 }}>
-          {opts.map(opt => (
-            <Pressable
-              key={opt.level}
-              onPress={() => { Haptics.selectionAsync(); setNotifLevel(opt.level); }}
-              style={[styles.notifOpt, notifLevel === opt.level && styles.notifOptSel]}
-            >
-              <View style={[styles.notifEmoji, notifLevel === opt.level && { backgroundColor: Colors.purpleLight }]}>
-                <Text style={{ fontSize: 24 }}>{opt.emoji}</Text>
-              </View>
-              <View>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.text }}>{opt.title}</Text>
-                <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 2 }}>{opt.desc}</Text>
-              </View>
-            </Pressable>
-          ))}
+  return (
+    <View style={[styles.unifiedCard, { margin: 10 }]}>
+      <Text style={[styles.h1, { ...Fonts.serif, marginBottom: 8 }]}>Ton & Vigilance</Text>
+      <Text style={[styles.sub, { marginBottom: 28 }]}>Personnalisez la voix de Luna pour vos rapports et alertes.</Text>
+      
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        <View style={{ gap: 14 }}>
+          {opts.map(opt => {
+            const isSel = notifLevel === opt.level;
+            return (
+              <Pressable
+                key={opt.level}
+                onPress={() => { PremiumHaptics.selection(); setNotifLevel(opt.level); }}
+                style={[
+                  styles.notifOpt, 
+                  isSel && { borderColor: Colors.accent, borderWidth: 2, backgroundColor: Colors.surface }
+                ]}
+              >
+                <View style={[styles.notifEmoji, isSel && { backgroundColor: Colors.white }]}>
+                  <Text style={{ fontSize: 24 }}>{opt.emoji}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.notifTitle, { ...Fonts.serif, fontSize: 15 }]}>{opt.title}</Text>
+                  <Text style={styles.notifDesc}>{opt.desc}</Text>
+                </View>
+                {isSel && (
+                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: Colors.white, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
         </View>
+      </ScrollView>
+    </View>
+  );
+};
 
-        {/* Preview notification */}
-        <View style={styles.notifPreview}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginBottom: 10 }}>Aperçu</Text>
-          <View style={styles.notifPreviewCard}>
-            <View style={[styles.notifPreviewIcon]}>
-              <Text>🐾</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 14, fontWeight: '800' }}>Trimly</Text>
-                <Text style={{ fontSize: 12, color: Colors.textSecondary }}>il y a 2j</Text>
-              </View>
-              <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 2 }}>
-                ⚠️ Netflix – 15,99€ prélevé dans 2 jours
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
+const StepWelcome = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 40 }}>
+      <Text style={{ fontSize: 50 }}>🌱</Text>
+    </View>
+    <Text style={[styles.h1, { textAlign: 'center', fontSize: 32 }]}>Bienvenue chez Trimly</Text>
+    <Text style={[styles.sub, { textAlign: 'center', maxWidth: '85%' }]}>
+      Votre écosystème est prêt. Commencez à piloter vos finances avec sérénité.
+    </Text>
+  </View>
+);
+
+export default function OnboardingScreen({ navigation }) {
+  const { 
+    dispatch, 
+    setIncome: setIncomeSync, 
+    setNotifLevel: setNotifLevelSync, 
+    setCurrency: setCurrencySync,
+    completeOnboarding,
+    addCategory, 
+    state 
+  } = useApp();
+
+  const [step, setStep] = useState(0);
+  const [selectedCats, setSelectedCats] = useState(['Loyer', 'Courses']);
+  const [income, setIncome] = useState('2500');
+  const [currency, setCurrency] = useState('MAD');
+  const [budgets, setBudgets] = useState({ Loyer: '800', Courses: '400' });
+  const [notifLevel, setNotifLevel] = useState(1);
+
+  const toggleCat = (name) => {
+    PremiumHaptics.selection();
+    setSelectedCats(prev => 
+      prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]
     );
   };
 
-  // ── Step 3: Trial info (like Luna) ──
-  const StepTrial = () => (
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 64, marginBottom: 16 }}>🐾</Text>
-      <Text style={styles.h1}>Votre essai gratuit</Text>
-      <Text style={styles.sub}>Essayez Trimly 14 jours, sans engagement ✌️</Text>
+  const handleFinish = async () => {
+    PremiumHaptics.nav();
+    
+    try {
+      // 1. Persist Income, Currency & Notif Level to Cloud
+      await setIncomeSync(parseFloat(income) || 0);
+      await setCurrencySync(currency);
+      await setNotifLevelSync(notifLevel);
 
-      <View style={{ gap: 20, marginTop: 32 }}>
-        {[
-          { emoji: '💳', title: 'Aucune carte nécessaire', desc: "L'essai est activé automatiquement, rien à faire" },
-          { emoji: '🙋', title: 'Besoin de plus de temps ?', desc: "Contactez-nous via les réglages, on prolonge volontiers" },
-          { emoji: '🎯', title: 'Dans 14 jours', desc: "4,99€/mois · 49,99€/an · 149,99€ une fois – ou continuez à l'utiliser gratuitement avec des limites" },
-        ].map(item => (
-          <View key={item.title} style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start' }}>
-            <View style={styles.trialItemIcon}>
-              <Text style={{ fontSize: 20 }}>{item.emoji}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.purple }}>{item.title}</Text>
-              <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginTop: 3 }}>{item.desc}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
+      // 2. Persist Categories to Cloud
+      const allCats = ONBOARDING_CAT_GROUPS.flatMap(g => g.items);
+      const selectedItems = allCats.filter(c => selectedCats.includes(c.name));
+
+      for (const item of selectedItems) {
+        await addCategory({
+          name: item.name,
+          icon: item.icon,
+          budget: parseFloat(budgets[item.name]) || 0,
+          spent: 0,
+          cycle: 'monthly',
+          color: Colors.accent,
+          active: true
+        });
+      }
+
+      // 3. Mark Onboarding as complete in Cloud & Local
+      await completeOnboarding();
+    } catch (error) {
+      console.error('Error during onboarding sync:', error);
+      // Fallback: still finish but log error
+      await completeOnboarding();
+    }
+  };
+
+  const nextStep = () => {
+    PremiumHaptics.nav();
+    if (step < 3) setStep(step + 1);
+    else handleFinish();
+  };
+
+  const prevStep = () => {
+    PremiumHaptics.nav();
+    if (step > 0) setStep(step - 1);
+  };
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepCategories />;
-      case 1: return <StepBudgets />;
-      case 2: return <StepNotifications />;
-      case 3: return <StepTrial />;
+      case 0: return <StepCategories selectedCats={selectedCats} toggleCat={toggleCat} />;
+      case 1: return <StepBudgets income={income} setIncome={setIncome} currency={currency} setCurrency={setCurrency} selectedCats={selectedCats} budgets={budgets} setBudgets={setBudgets} />;
+      case 2: return <StepNotifications notifLevel={notifLevel} setNotifLevel={setNotifLevel} />;
+      case 3: return <StepWelcome />;
       default: return null;
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Progress dots */}
-      <View style={styles.progressWrap}>
-        {steps.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              i < step && styles.dotDone,
-              i === step && styles.dotActive,
-            ]}
-          />
-        ))}
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <Pressable onPress={prevStep} style={styles.navBtn}>
+          {step > 0 ? <Text style={styles.navText}>←</Text> : <View style={{ width: 24 }} />}
+        </Pressable>
+        <Progress step={step} />
+        <View style={{ width: 44 }} />
       </View>
 
-      {/* Content */}
-      <Animated.View style={[styles.content, { transform: [{ translateX: slideX }] }]}>
+      <View style={styles.content}>
         {renderStep()}
-      </Animated.View>
+      </View>
 
-      {/* Navigation */}
-      <View style={styles.navRow}>
-        {step > 0 ? (
-          <SecondaryButton onPress={goBack} />
-        ) : (
-          <View style={{ width: 52 }} />
-        )}
-        {step < 3 ? (
-          <PrimaryButton onPress={goNext} label="Continuer" />
-        ) : (
-          <PrimaryButton onPress={finish} label="Commencer" />
-        )}
+      <View style={styles.footer}>
+        <Pressable 
+          onPress={nextStep} 
+          style={[styles.nextBtn, { backgroundColor: Colors.accent }]}
+        >
+          <Text style={styles.nextText}>→</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 24 },
-  progressWrap: { flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 28 },
-  dot: { height: 5, flex: 1, borderRadius: 100, backgroundColor: Colors.border },
-  dotDone: { backgroundColor: Colors.purple },
-  dotActive: { backgroundColor: Colors.purple, flex: 2 },
+  safe: { flex: 1, backgroundColor: Colors.bg, paddingHorizontal: 28 },
+  header: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    height: 60, marginTop: 20
+  },
+  navBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  navText: { fontSize: 24, color: Colors.textSecondary },
+  progressContainer: { flexDirection: 'row', gap: 6 },
+  progressDot: { height: 3, borderRadius: 1.5, backgroundColor: Colors.border, width: 8 },
   content: { flex: 1 },
-  h1: { fontSize: 26, fontWeight: '800', color: Colors.text, letterSpacing: -0.5, marginBottom: 8 },
-  sub: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20, marginBottom: 4 },
+  footer: { 
+    height: 100, alignItems: 'center', justifyContent: 'center'
+  },
+  nextBtn: { 
+    width: 64, height: 64, borderRadius: 32, alignItems: 'center', 
+    justifyContent: 'center', backgroundColor: '#084A62',
+    ...Shadow.medium
+  },
+  nextText: { color: Colors.white, fontSize: 28, fontWeight: '300' },
+  
+  unifiedCard: {
+    flex: 1, 
+    paddingHorizontal: 0,
+    paddingVertical: 10,
+    backgroundColor: 'transparent', 
+    borderColor: 'transparent',
+    borderWidth: 0,
+    marginBottom: 20
+  },
+  
+  h1: { fontSize: 28, color: Colors.text, marginBottom: 12, letterSpacing: -0.5, ...Fonts.serif, marginTop: 10 },
+  sub: { ...Fonts.sans, fontSize: 15, color: Colors.textSecondary, lineHeight: 22, letterSpacing: -0.1, marginBottom: 28 },
 
-  // Categories
-  groupLbl: { fontSize: 14, fontWeight: '800', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // Step 0
+  groupLbl: { ...Fonts.sans, fontSize: 10, ...Fonts.black, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 14 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100,
-    borderWidth: 2, borderColor: Colors.border, backgroundColor: '#fff',
+    flexDirection: 'row', alignItems: 'center', gap: 8, 
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, 
+    backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.borderStrong, minHeight: 44,
   },
-  chipText: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  chipSel: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  chipText: { ...Fonts.sans, fontSize: 13, ...Fonts.semiBold, color: Colors.text },
+  chipTextSel: { color: Colors.white },
 
-  // Budgets
-  suggestCard: {
-    backgroundColor: Colors.bg, borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: 12,
+  // Step 1
+  input: { 
+    ...Fonts.sans, fontSize: 16, color: Colors.text, paddingVertical: 12,
   },
-  input: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    fontSize: 15, fontWeight: '600', borderWidth: 1.5, borderColor: Colors.border, color: Colors.text,
+  budgetRow: { 
+    flexDirection: 'row', alignItems: 'center', 
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    minHeight: 64,
   },
-  suggestBtn: {
-    backgroundColor: Colors.purpleLight, borderRadius: 12,
-    paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center',
-  },
-  currencyRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: Colors.bg, borderRadius: 12, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  budgetGroupHdr: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  budgetRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.bg, borderRadius: 12, padding: 12, marginBottom: 8,
-  },
-  budgetInput: {
-    backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
-    fontSize: 15, fontWeight: '700', borderWidth: 1.5, borderColor: Colors.border,
-    width: 80, textAlign: 'right', color: Colors.text,
-  },
+  budgetIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  budgetName: { flex: 1, marginLeft: 14, ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.text },
+  budgetInput: { ...Fonts.serif, fontSize: 18, color: Colors.accent, width: 68, textAlign: 'right' },
 
-  // Notifications
-  notifOpt: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16,
-    borderRadius: 16, borderWidth: 2, borderColor: Colors.border, backgroundColor: '#fff',
+  // Step 2
+  notifOpt: { 
+    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, 
+    borderRadius: 24, backgroundColor: 'transparent', minHeight: 80,
+    borderWidth: 1, borderColor: Colors.borderStrong
   },
-  notifOptSel: { borderColor: Colors.purple, backgroundColor: Colors.purpleXLight },
-  notifEmoji: {
-    width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.bg,
+  notifEmoji: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  notifTitle: { ...Fonts.sans, fontSize: 14, ...Fonts.black, color: Colors.text },
+  notifDesc: { ...Fonts.sans, fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  
+  currencyBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4
   },
-  notifPreview: { marginTop: 20 },
-  notifPreviewCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: Colors.border,
-  },
-  notifPreviewIcon: {
-    width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.purpleLight,
-    alignItems: 'center', justifyContent: 'center',
-  },
-
-  // Trial
-  trialItemIcon: {
-    width: 44, height: 44, borderRadius: 12,
-    backgroundColor: Colors.purpleLight, alignItems: 'center', justifyContent: 'center',
-  },
-
-  // Nav
-  navRow: { flexDirection: 'row', gap: 12, paddingBottom: 12, paddingTop: 16 },
+  currencyBtnText: {
+    ...Fonts.sans,
+    fontSize: 12,
+    ...Fonts.bold,
+    color: Colors.textSecondary
+  }
 });

@@ -1,30 +1,48 @@
 // src/screens/Transactions/TransactionsScreen.js
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, SafeAreaView } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Colors, Shadow } from '../../theme';
+import { View, Text, ScrollView, Pressable, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { PremiumHaptics } from '../../utils/haptics';
+import { Colors, Shadow, Fonts, Radius, Spacing, Layout, Metrics } from '../../theme';
 import { useApp } from '../../context/AppContext';
 import AddTransactionModal from '../Home/AddTransactionModal';
+import {
+  addMonths, addWeeks, endOfMonth, endOfWeek, formatMonthYear, formatWeekRange, startOfMonth, startOfWeek,
+} from '../../utils/dateUtils';
 
 export default function TransactionsScreen() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, addTransaction, deleteTransaction } = useApp();
   const [period, setPeriod] = useState('week');
   const [showAdd, setShowAdd] = useState(false);
+  const [anchorDate, setAnchorDate] = useState(new Date());
+  const rangeStart = period === 'week' ? startOfWeek(anchorDate) : startOfMonth(anchorDate);
+  const rangeEnd = period === 'week' ? endOfWeek(anchorDate) : endOfMonth(anchorDate);
 
-  const now = new Date();
+  function confirmDelete(tx) {
+    Alert.alert(
+      'Supprimer ?',
+      `Effacer la transaction "${tx.note || tx.categoryName}" de ${tx.amount} ${state.currency} ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await deleteTransaction(tx.id);
+            if (ok) {
+              PremiumHaptics.impact();
+            } else {
+              Alert.alert('Erreur', 'Impossible de supprimer du Cloud.');
+            }
+          },
+        },
+      ]
+    );
+  }
 
   // Filter transactions by period
   const filtered = state.transactions.filter(tx => {
     const txDate = new Date(tx.date);
-    if (period === 'week') {
-      const day = now.getDay();
-      const mon = new Date(now);
-      mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-      mon.setHours(0, 0, 0, 0);
-      return txDate >= mon;
-    } else {
-      return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
-    }
+    return txDate >= rangeStart && txDate <= rangeEnd;
   });
 
   // Group by date
@@ -36,17 +54,15 @@ export default function TransactionsScreen() {
   });
 
   const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
   const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
 
-  // Bar chart data (daily for week, weekly for month)
+  // Chart data
   const bars = [];
   if (period === 'week') {
     const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      const dayOfWeek = now.getDay();
-      d.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + i);
+      const d = new Date(rangeStart);
+      d.setDate(rangeStart.getDate() + i);
       const ds = d.toISOString().split('T')[0];
       const total = (grouped[ds] || []).filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
       bars.push({ label: days[i], value: total });
@@ -54,97 +70,167 @@ export default function TransactionsScreen() {
   }
 
   const maxBar = Math.max(...bars.map(b => b.value), 1);
+  const periodLabel = period === 'week' ? formatWeekRange(anchorDate) : formatMonthYear(anchorDate);
 
-  const periodLabel = period === 'week'
-    ? `${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} (semaine)`
-    : now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  function shiftPeriod(direction) {
+    PremiumHaptics.selection();
+    setAnchorDate(prev => (period === 'week' ? addWeeks(prev, direction) : addMonths(prev, direction)));
+  }
+
+  function goToCurrentPeriod() {
+    PremiumHaptics.selection();
+    setAnchorDate(new Date());
+  }
+
+  const [expandedDates, setExpandedDates] = useState({});
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transactions</Text>
+        <Text style={styles.title}>Flux</Text>
       </View>
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Period selector */}
-        <View style={styles.periodRow}>
-          <View style={styles.periodNav}>
-            <Pressable><Text style={{ color: Colors.purple, fontSize: 18 }}>‹</Text></Pressable>
-            <Text style={styles.periodLabel}>{periodLabel}</Text>
-            <Pressable><Text style={{ color: Colors.purple, fontSize: 18 }}>›</Text></Pressable>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Combined Control Bar */}
+        <View style={styles.controlBar}>
+          {/* Shifter: Prev, This, Next */}
+          <View style={styles.shifterRow}>
+            <Pressable style={styles.shiftBtn} onPress={() => shiftPeriod(-1)}>
+              <Text style={styles.shiftTxt}>←</Text>
+            </Pressable>
+            <Pressable style={styles.shiftCenter} onPress={goToCurrentPeriod}>
+              <Text style={styles.shiftCenterTxt}>{periodLabel}</Text>
+            </Pressable>
+            <Pressable style={styles.shiftBtn} onPress={() => shiftPeriod(1)}>
+              <Text style={styles.shiftTxt}>→</Text>
+            </Pressable>
           </View>
-          <View style={styles.pillToggle}>
+
+          {/* Filter: Week / Month */}
+          <View style={styles.filterRow}>
             {['week', 'month'].map(p => (
-              <Pressable key={p} onPress={() => { Haptics.selectionAsync(); setPeriod(p); }} style={[styles.pillBtn, period === p && styles.pillBtnActive]}>
-                <Text style={[styles.pillTxt, period === p && styles.pillTxtActive]}>
-                  {p === 'week' ? 'Semaine' : 'Mois'}
+              <Pressable 
+                key={p} 
+                onPress={() => {
+                  PremiumHaptics.selection();
+                  setPeriod(p);
+                  setAnchorDate(new Date());
+                }} 
+                style={[styles.filterBtn, period === p && styles.filterBtnActive]}
+              >
+                <Text style={[styles.filterTxt, period === p && styles.filterTxtActive]}>
+                  {p === 'week' ? 'Sem.' : 'Mois'}
                 </Text>
               </Pressable>
             ))}
           </View>
         </View>
 
-        {/* Bar chart */}
         <View style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Activité Financière</Text>
           <View style={styles.chartBars}>
             {bars.map((b, i) => (
               <View key={i} style={styles.barCol}>
                 <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { height: `${(b.value / maxBar) * 100}%`, opacity: b.value > 0 ? 1 : 0.15 }]} />
+                  <View 
+                    style={[
+                      styles.barFill, 
+                      { height: `${(b.value / maxBar) * 100}%`, backgroundColor: b.value > 0 ? Colors.accent : Colors.border }
+                    ]} 
+                  />
                 </View>
                 <Text style={styles.barLbl}>{b.label}</Text>
               </View>
             ))}
           </View>
-          {/* Y axis labels */}
-          <View style={styles.yAxis}>
-            {[100, 75, 50, 25, 0].map(v => (
-              <Text key={v} style={styles.yLbl}>{Math.round((maxBar * v) / 100)} €</Text>
-            ))}
-          </View>
         </View>
 
-        {/* Total */}
+        {/* Spending Summary Highlight */}
         {filtered.length > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLbl}>Total dépensé</Text>
-            <Text style={styles.totalAmt}>-{totalExpenses.toFixed(2)} €</Text>
+          <View style={styles.summaryBox}>
+            <View style={styles.summaryLabelWrap}>
+              <View style={styles.summaryDot} />
+              <Text style={styles.summaryLabel}>Synthèse des Sorties</Text>
+            </View>
+            <View style={styles.summaryContent}>
+              <Text style={[styles.summaryAmt, { ...Fonts.serif }]}>-{totalExpenses.toLocaleString()} {state.currency}</Text>
+              <View style={styles.summaryBadge}>
+                <Text style={styles.summaryBadgeText}>HEBDO</Text>
+              </View>
+            </View>
           </View>
         )}
 
-        {/* Grouped transactions */}
         {sortedDates.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={{ fontSize: 48 }}>🏜️</Text>
-            <Text style={styles.emptyTxt}>Aucune transaction</Text>
+            <Text style={{ fontSize: 48, opacity: 0.8 }}>🏜️</Text>
+            <Text style={styles.emptyTxt}>Aucun flux enregistré</Text>
           </View>
         ) : (
-          sortedDates.map(date => (
-            <View key={date}>
-              <Text style={styles.dateSep}>
-                {new Date(date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </Text>
-              {grouped[date].map(tx => (
-                <View key={tx.id} style={styles.txRow}>
-                  <View style={[styles.txIcon, { backgroundColor: tx.color + '22' }]}>
-                    <Text style={{ fontSize: 17 }}>{tx.icon}</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.txName}>{tx.note}</Text>
-                    <Text style={styles.txCat}>{tx.categoryName}</Text>
-                  </View>
-                  <Text style={[styles.txAmt, tx.type === 'income' && { color: Colors.green }]}>
-                    {tx.type === 'income' ? '+' : '-'}{tx.amount.toFixed(2)} €
-                  </Text>
+          sortedDates.map(date => {
+            const dayTxs = grouped[date];
+            const isExpanded = expandedDates[date];
+            const visibleTxs = isExpanded ? dayTxs : dayTxs.slice(0, 3);
+            const hasMore = dayTxs.length > 3;
+
+            return (
+              <View key={date} style={styles.dateGroup}>
+                <Text style={styles.dateSep}>
+                  {new Date(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })}
+                </Text>
+                <View style={styles.groupCard}>
+                  {visibleTxs.map((tx, idx) => (
+                    <View key={tx.id}>
+                      <Pressable 
+                        onLongPress={() => {
+                          PremiumHaptics.open();
+                          confirmDelete(tx);
+                        }}
+                        style={({ pressed }) => [
+                          styles.txRow,
+                          pressed && { backgroundColor: Colors.surface }
+                        ]}
+                      >
+                        <View style={[styles.txIcon, { backgroundColor: Colors.surface }]}>
+                          <Text style={{ fontSize: 18 }}>{tx.icon}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 16 }}>
+                          <Text style={styles.txName}>{tx.note || tx.categoryName}</Text>
+                          <Text style={styles.txCat}>{tx.categoryName}</Text>
+                        </View>
+                        <Text style={[styles.txAmt, { ...Fonts.serif }, tx.type === 'income' && { color: Colors.accent }]}>
+                          {tx.type === 'income' ? '+' : '-'}{tx.amount.toFixed(0)} {state.currency}
+                        </Text>
+                      </Pressable>
+                      {idx < visibleTxs.length - 1 && <View style={styles.rowLine} />}
+                    </View>
+                  ))}
+                  {hasMore && !isExpanded && (
+                    <Pressable 
+                      style={styles.moreBtn} 
+                      onPress={() => { 
+                        PremiumHaptics.selection(); 
+                        setExpandedDates(prev => ({ ...prev, [date]: true })); 
+                      }}
+                    >
+                      <Text style={styles.moreBtnTxt}>···</Text>
+                    </Pressable>
+                  )}
                 </View>
-              ))}
-            </View>
-          ))
+              </View>
+            );
+          })
         )}
       </ScrollView>
 
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => setShowAdd(true)}>
+      {/* FAB - Unified Global Action */}
+      <Pressable 
+        style={styles.fab} 
+        onPress={() => {
+          PremiumHaptics.click();
+          setShowAdd(true);
+        }}
+      >
         <Text style={styles.fabText}>+</Text>
       </Pressable>
 
@@ -152,9 +238,14 @@ export default function TransactionsScreen() {
         visible={showAdd}
         onClose={() => setShowAdd(false)}
         categories={state.categories}
-        onSave={(tx) => {
-          dispatch({ type: 'ADD_TRANSACTION', payload: { ...tx, id: `tx_${Date.now()}` } });
-          setShowAdd(false);
+        onSave={async (tx) => {
+          const ok = await addTransaction(tx);
+          if (ok) {
+            setShowAdd(false);
+            PremiumHaptics.success();
+          } else {
+            Alert.alert('Erreur', 'Impossible de synchroniser la transaction.');
+          }
         }}
       />
     </SafeAreaView>
@@ -163,36 +254,81 @@ export default function TransactionsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
-  scroll: { flex: 1, paddingHorizontal: 16 },
-  periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  periodNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  periodLabel: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  pillToggle: { flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 100, padding: 3, borderWidth: 1.5, borderColor: Colors.border },
-  pillBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100 },
-  pillBtnActive: { backgroundColor: Colors.purple },
-  pillTxt: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
-  pillTxtActive: { color: '#fff' },
-  chartCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: Colors.border, flexDirection: 'row' },
-  chartBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 4 },
-  barCol: { flex: 1, alignItems: 'center', gap: 4 },
-  barTrack: { flex: 1, width: '80%', justifyContent: 'flex-end' },
-  barFill: { backgroundColor: Colors.purple, borderRadius: 4, width: '100%' },
-  barLbl: { fontSize: 10, color: Colors.textSecondary, fontWeight: '600' },
-  yAxis: { justifyContent: 'space-between', height: 120, marginLeft: 8 },
-  yLbl: { fontSize: 10, color: Colors.textSecondary },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1.5, borderColor: Colors.border },
-  totalLbl: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
-  totalAmt: { fontSize: 16, fontWeight: '800', color: Colors.red },
-  dateSep: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, textTransform: 'capitalize', marginTop: 12, marginBottom: 8, marginLeft: 2 },
-  txRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 14, padding: 12, marginBottom: 7, borderWidth: 1.5, borderColor: Colors.border },
-  txIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  txName: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  txCat: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', marginTop: 1 },
-  txAmt: { fontSize: 15, fontWeight: '800', color: Colors.red },
-  empty: { alignItems: 'center', paddingVertical: 60 },
-  emptyTxt: { fontSize: 15, color: Colors.textSecondary, fontWeight: '600', marginTop: 12 },
-  fab: { position: 'absolute', right: 16, bottom: 90, width: 54, height: 54, borderRadius: 27, backgroundColor: '#0F0F1A', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10 },
-  fabText: { color: '#fff', fontSize: 28, fontWeight: '300', lineHeight: 32 },
+  header: { paddingHorizontal: Metrics.screenPadding, paddingTop: Metrics.headerTop, paddingBottom: Spacing.md },
+  title: { ...Fonts.serif, fontSize: 28, color: Colors.text, letterSpacing: -1 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: Metrics.screenPadding, paddingBottom: 160 },
+
+  controlBar: { flexDirection: 'row', gap: 12, marginBottom: Spacing.lg },
+  shifterRow: { 
+    flex: 2, flexDirection: 'row', backgroundColor: Colors.surface, 
+    borderRadius: Radius.pill, padding: 2, borderWidth: 1, borderColor: Colors.border 
+  },
+  shiftBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18 },
+  shiftTxt: { fontSize: 16, color: Colors.textSecondary },
+  shiftCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  shiftCenterTxt: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.text, textTransform: 'uppercase' },
+
+  filterRow: { 
+    flex: 1, flexDirection: 'row', backgroundColor: Colors.white, 
+    borderRadius: Radius.pill, padding: 2, borderWidth: 1, borderColor: Colors.borderStrong 
+  },
+  filterBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 18, height: 36 },
+  filterBtnActive: { backgroundColor: Colors.accent },
+  filterTxt: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.textSecondary },
+  filterTxtActive: { color: Colors.white },
+
+  chartCard: { padding: 0, marginBottom: Spacing.lg, height: 140, backgroundColor: 'transparent' },
+  chartTitle: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.text, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 16 },
+  chartBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 14 },
+  barCol: { flex: 1, alignItems: 'center', gap: 6 },
+  barTrack: { flex: 1, width: 4, justifyContent: 'flex-end', backgroundColor: 'transparent' },
+  barFill: { borderRadius: Radius.pill, width: '100%', opacity: 0.8 },
+  barLbl: { ...Fonts.sans, fontSize: 9, color: Colors.textMuted, ...Fonts.medium, marginTop: 4 },
+
+  summaryBox: { 
+    backgroundColor: Colors.surface, padding: 16, marginBottom: Spacing.lg,
+    borderLeftWidth: 4, borderLeftColor: Colors.accent,
+    borderRadius: Radius.sm, // Keep it sharp/minimalist
+  },
+  summaryLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  summaryDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.accent },
+  summaryLabel: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
+  summaryContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  summaryAmt: { fontSize: 24, color: Colors.text },
+  summaryBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  summaryBadgeText: { ...Fonts.sans, fontSize: 9, ...Fonts.bold, color: Colors.textSecondary },
+
+  dateGroup: { marginBottom: Spacing.lg },
+  dateSep: { 
+    ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.textSecondary, 
+    textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, marginLeft: 6 
+  },
+  groupCard: { 
+    backgroundColor: Colors.white, borderRadius: Radius.lg, overflow: 'hidden',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  txRow: { 
+    flexDirection: 'row', alignItems: 'center', padding: 14, minHeight: 64,
+  },
+  rowLine: { height: 0.5, backgroundColor: Colors.border, marginHorizontal: 16 },
+  txIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  txName: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.text },
+  txCat: { ...Fonts.sans, fontSize: 10, color: Colors.textSecondary, marginTop: 1 },
+  txAmt: { fontSize: 15, color: Colors.text },
+
+  moreBtn: { 
+    paddingVertical: 4, alignItems: 'center', borderTopWidth: 0.5, borderTopColor: Colors.border, backgroundColor: Colors.surface 
+  },
+  moreBtnTxt: { fontSize: 28, color: Colors.textMuted, letterSpacing: 4, fontWeight: '100', marginTop: -4,fontWeight: 'bold' },
+
+  empty: { alignItems: 'center', paddingVertical: 80 },
+  emptyTxt: { ...Fonts.sans, fontSize: 16, color: Colors.textSecondary, ...Fonts.semiBold, marginTop: 16 },
+  fab: { 
+    position: 'absolute', right: Metrics.screenPadding, bottom: Metrics.fabBottomElevated, 
+    width: 64, height: 64, borderRadius: 32, 
+    backgroundColor: Colors.text, alignItems: 'center', justifyContent: 'center', 
+    ...Shadow.premium, borderWidth: 4, borderColor: Colors.white 
+  },
+  fabText: { color: Colors.white, fontSize: 36, fontWeight: '300', marginTop: -4 },
 });

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Trimly",
     "slug": "trimly",
+    "scheme": "trimly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +16,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.trimly.app",
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -24,7 +28,10 @@
         "backgroundColor": "#5B3BF5"
       },
       "package": "com.trimly.app",
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,7 +44,14 @@
           "color": "#5B3BF5",
           "sounds": []
         }
-      ]
-    ]
+      ],
+      "expo-video",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "da2b6681-aa08-4871-95ac-b511a08b14ba"
+      }
+    }
   }
 }

@@ -1,38 +1,80 @@
-// src/screens/Home/HomeScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, SafeAreaView,
-  TouchableOpacity,
+  Alert,
+  Animated,
+  PanResponder,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { PremiumHaptics } from '../../utils/haptics';
-import { Colors, Shadow, Spacing } from '../../theme';
 import {
-  CategoryRow, TrialBanner, AlertBanner, PeriodPill,
+  CategoryRow,
   CategorySection,
+  PeriodPill,
+  TrialBanner,
 } from '../../components';
 import { useApp } from '../../context/AppContext';
-import { getNextBilling, getPeriodLabel, daysLeftInPeriod } from '../../utils/dateUtils';
+import { Colors, Fonts, Metrics, Radius, Shadow, Spacing } from '../../theme';
+import { getPeriodLabel, daysLeftInPeriod } from '../../utils/dateUtils';
+import { PremiumHaptics } from '../../utils/haptics';
 import AddTransactionModal from './AddTransactionModal';
-import AddCategoryModal from './AddCategoryModal';
+import CategoryDetailModal from './CategoryDetailModal';
+import CategoryManagerModal from './CategoryManagerModal';
+
+function usePressScale() {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 26,
+      bounciness: 4,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 5,
+    }).start();
+  };
+
+  return { scale, onPressIn, onPressOut };
+}
 
 export default function HomeScreen({ navigation }) {
-  const { state, trialDaysLeft, dispatch, activeSubscriptions } = useApp();
+  const { 
+    state, 
+    trialDaysLeft, 
+    dispatch, 
+    addTransaction,
+    addCategory,
+    updateCategory,
+    deleteCategory 
+  } = useApp();
+
   const [period, setPeriod] = useState('monthly');
   const [showAddTx, setShowAddTx] = useState(false);
-  const [showAddCat, setShowAddCat] = useState(false);
+  const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+  const [showCategoryDetail, setShowCategoryDetail] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [showTrial, setShowTrial] = useState(true);
-  const [incomeExpanded, setIncomeExpanded] = useState(false);
+  const [showInsight, setShowInsight] = useState(true);
+  const settingsPress = usePressScale();
+  const addPress = usePressScale();
+  const fabPress = usePressScale();
+  const insightTranslate = useRef(new Animated.Value(0)).current;
+  const insightOpacity = useRef(new Animated.Value(1)).current;
 
-  // Filter cats by period
   const weeklyCats = state.categories.filter(c => c.cycle === 'weekly');
   const monthlyCats = state.categories.filter(c => c.cycle === 'monthly');
-
-  // Subscription alerts (≤ 2 days before charge)
-  const urgentAlerts = activeSubscriptions
-    .map(sub => ({ sub, billing: getNextBilling(sub) }))
-    .filter(({ billing }) => !billing.isTrial && billing.daysUntilCharge <= 2)
-    .sort((a, b) => a.billing.daysUntilCharge - b.billing.daysUntilCharge);
+  const selectedCategory = state.categories.find(cat => cat.id === selectedCategoryId) || null;
 
   const weeklyBudget = weeklyCats.reduce((a, c) => a + c.budget, 0);
   const weeklySpent = weeklyCats.reduce((a, c) => a + c.spent, 0);
@@ -40,22 +82,62 @@ export default function HomeScreen({ navigation }) {
   const monthlySpent = monthlyCats.reduce((a, c) => a + c.spent, 0);
 
   const togglePeriod = () => {
-    PremiumHaptics.selection(); // Smoother than selectionAsync
-    setPeriod(p => p === 'monthly' ? 'weekly' : 'monthly');
+    PremiumHaptics.selection();
+    setPeriod(current => (current === 'monthly' ? 'weekly' : 'monthly'));
   };
+
+  const openCategoryPanel = () => {
+    PremiumHaptics.selection();
+    setShowCategoryPanel(true);
+  };
+
+  const openCategoryDetail = (categoryId) => {
+    PremiumHaptics.selection();
+    setSelectedCategoryId(categoryId);
+    setShowCategoryDetail(true);
+  };
+
+  const insightPanResponder = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onPanResponderMove: (_, gesture) => {
+      if (gesture.dx < 0) {
+        insightTranslate.setValue(gesture.dx);
+      }
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx < -80) {
+        PremiumHaptics.selection();
+        Animated.parallel([
+          Animated.timing(insightTranslate, { toValue: -220, duration: 180, useNativeDriver: true }),
+          Animated.timing(insightOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]).start(() => setShowInsight(false));
+      } else {
+        Animated.spring(insightTranslate, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 4,
+        }).start();
+      }
+    },
+  })).current;
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ── Header ── */}
       <View style={styles.header}>
-        <View style={styles.logoRow}>
-          <Text style={styles.logoText}>🐾</Text>
-          <Text style={styles.logoTitle}>Trimly</Text>
+        <Text style={styles.logoTitle}>TRIMLY</Text>
+        <View style={styles.headerActions}>
+          <PeriodPill label={getPeriodLabel(period)} onPress={togglePeriod} />
+          <Pressable
+            onPress={openCategoryPanel}
+            onPressIn={settingsPress.onPressIn}
+            onPressOut={settingsPress.onPressOut}
+          >
+            <Animated.View style={[styles.settingsBtn, { transform: [{ scale: settingsPress.scale }] }]}>
+              <Text style={styles.settingsIcon}>✎</Text>
+            </Animated.View>
+          </Pressable>
         </View>
-        <PeriodPill label={getPeriodLabel(period)} onPress={togglePeriod} />
-        <Pressable style={styles.editBtn} onPress={() => {}}>
-          <Text style={{ color: Colors.purple, fontSize: 18 }}>⊘</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -63,7 +145,6 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Trial banner */}
         {state.trial?.active && trialDaysLeft > 0 && showTrial && (
           <TrialBanner
             daysLeft={trialDaysLeft}
@@ -72,43 +153,50 @@ export default function HomeScreen({ navigation }) {
           />
         )}
 
-        {/* Subscription alerts */}
-        <AlertBanner alerts={urgentAlerts} />
-
-        {/* Income row */}
-        <Pressable style={styles.incomeCard} onPress={() => setIncomeExpanded(!incomeExpanded)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={{ fontSize: 22 }}>💸</Text>
-            <Text style={styles.incomeTitle}>Revenus</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={styles.incomeAmt}>
-              {state.income > 0 ? `+${state.income.toFixed(2)} €` : '$0.00'}
+        {showInsight ? (
+          <Animated.View
+            style={[
+              styles.insightBox,
+              { transform: [{ translateX: insightTranslate }], opacity: insightOpacity },
+            ]}
+            {...insightPanResponder.panHandlers}
+          >
+            <View style={styles.insightTopRow}>
+              <View style={styles.insightChip}>
+                <Text style={styles.insightChipText}>Analyse</Text>
+              </View>
+              <Text style={styles.insightHint}>Glissez pour masquer</Text>
+            </View>
+            <Text style={styles.insightText}>
+              Depenses en baisse de <Text style={styles.insightStrong}>18%</Text> ce mois-ci.
             </Text>
-            <Text style={{ color: Colors.green, fontSize: 14 }}>▾</Text>
-          </View>
-        </Pressable>
+          </Animated.View>
+        ) : null}
 
-        {/* Weekly categories */}
+        <View style={styles.balanceSection}>
+          <Text style={styles.balanceLabel}>Balance Totale</Text>
+          <Text style={styles.balanceAmt}>
+            {state.income > 0 ? `${state.income.toLocaleString()} ${state.currency || '€'}` : `0 ${state.currency || '€'}`}
+          </Text>
+          <View style={styles.balanceMeta}>
+            <View style={styles.dot} />
+            <Text style={styles.balanceStatus}>Comptes synchronises</Text>
+          </View>
+        </View>
+
         {weeklyCats.length > 0 && (
           <CategorySection
-            label="Hebdomadaire"
+            label="Hebdo"
             daysLeft={daysLeftInPeriod('weekly')}
             budgeted={weeklyBudget}
             left={weeklyBudget - weeklySpent}
           >
             {weeklyCats.map(cat => (
-              <CategoryRow
-                key={cat.id}
-                category={cat}
-                onPress={() => {}}
-                simple
-              />
+              <CategoryRow key={cat.id} category={cat} simple onPress={() => openCategoryDetail(cat.id)} />
             ))}
           </CategorySection>
         )}
 
-        {/* Monthly categories */}
         {monthlyCats.length > 0 && (
           <CategorySection
             label="Mensuel"
@@ -117,89 +205,95 @@ export default function HomeScreen({ navigation }) {
             left={monthlyBudget - monthlySpent}
           >
             {monthlyCats.map(cat => (
-              <CategoryRow
-                key={cat.id}
-                category={cat}
-                onPress={() => {}}
-                simple
-              />
+              <CategoryRow key={cat.id} category={cat} simple onPress={() => openCategoryDetail(cat.id)} />
             ))}
           </CategorySection>
         )}
 
-        {/* Add category button */}
-        <Pressable 
-          style={styles.addCatBtn} 
-          onPress={() => {
-            PremiumHaptics.click();
-            setShowAddCat(true);
-          }}
+        <Pressable
+          onPress={openCategoryPanel}
+          onPressIn={addPress.onPressIn}
+          onPressOut={addPress.onPressOut}
         >
-          <Text style={styles.addCatText}>+ Ajouter une catégorie</Text>
+          <Animated.View style={[styles.addBtn, { transform: [{ scale: addPress.scale }] }]}>
+            <Text style={styles.addBtnText}>+ Gerer les categories</Text>
+          </Animated.View>
         </Pressable>
 
-        {/* Quick subs summary */}
-        {activeSubscriptions.length > 0 && (
-          <Pressable
-            style={styles.subsCard}
-            onPress={() => {
-              PremiumHaptics.open(); // Fancy compound feel
-              navigation.navigate('Subscriptions');
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 13, fontWeight: '500', color: Colors.textSecondary }}>Abonnements</Text>
-              <Text style={{ fontSize: 13, color: Colors.purple, fontWeight: '500' }}>Voir tout →</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-              <View>
-                <Text style={{ fontSize: 28, fontWeight: '900', letterSpacing: -1 }}>
-                  {state.totalMonthlySubscriptions
-                    ? `${(activeSubscriptions.reduce((a, s) => {
-                        const mo = { weekly: s.amount * 52 / 12, monthly: s.amount, quarterly: s.amount / 3, annual: s.amount / 12 };
-                        return a + (mo[s.cycle] || s.amount);
-                      }, 0)).toFixed(2)} €`
-                    : '0,00 €'}
-                </Text>
-                <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-                  {activeSubscriptions.length} abonnements actifs
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 20, fontWeight: '900', color: Colors.textSecondary }}>
-                  {(activeSubscriptions.reduce((a, s) => {
-                    const mo = { weekly: s.amount * 52 / 12, monthly: s.amount, quarterly: s.amount / 3, annual: s.amount / 12 };
-                    return a + (mo[s.cycle] || s.amount);
-                  }, 0) * 12).toFixed(0)} €
-                </Text>
-                <Text style={{ fontSize: 12, color: Colors.textSecondary }}>par an</Text>
-              </View>
-            </View>
-          </Pressable>
-        )}
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => setShowAddTx(true)}>
-        <Text style={styles.fabText}>+</Text>
+      <Pressable
+        onPress={() => setShowAddTx(true)}
+        onPressIn={fabPress.onPressIn}
+        onPressOut={fabPress.onPressOut}
+      >
+        <Animated.View style={[styles.fab, { transform: [{ scale: fabPress.scale }] }]}>
+          <Text style={styles.fabText}>+</Text>
+        </Animated.View>
       </Pressable>
 
-      {/* Modals */}
       <AddTransactionModal
         visible={showAddTx}
         onClose={() => setShowAddTx(false)}
         categories={state.categories}
-        onSave={(tx) => {
-          dispatch({ type: 'ADD_TRANSACTION', payload: { ...tx, id: `tx_${Date.now()}` } });
-          setShowAddTx(false);
+        onSave={async (tx) => {
+          const ok = await addTransaction(tx);
+          if (ok) {
+            setShowAddTx(false);
+            PremiumHaptics.success();
+          } else {
+            Alert.alert('Erreur', 'Impossible de synchroniser la transaction.');
+          }
         }}
       />
-      <AddCategoryModal
-        visible={showAddCat}
-        onClose={() => setShowAddCat(false)}
-        onSave={(cat) => {
-          dispatch({ type: 'ADD_CATEGORY', payload: { ...cat, id: `cat_${Date.now()}`, spent: 0 } });
-          setShowAddCat(false);
+
+      <CategoryManagerModal
+        visible={showCategoryPanel}
+        onClose={() => setShowCategoryPanel(false)}
+        categories={state.categories}
+        onDeleteCategory={async (categoryId) => {
+          const ok = await deleteCategory(categoryId);
+          if (ok) PremiumHaptics.success();
+        }}
+        onOpenCategory={(categoryId) => {
+          setShowCategoryPanel(false);
+          openCategoryDetail(categoryId);
+        }}
+        onCreateCategory={async (cat) => {
+          const ok = await addCategory({ ...cat, spent: 0 });
+          if (ok) PremiumHaptics.success();
+        }}
+        onUpdateCategory={async (cat) => {
+          const ok = await updateCategory(cat.id, cat);
+          if (ok) PremiumHaptics.success();
+        }}
+      />
+
+      <CategoryDetailModal
+        visible={showCategoryDetail}
+        category={selectedCategory}
+        transactions={state.transactions}
+        categories={state.categories}
+        currency={state.currency || '€'}
+        onClose={() => setShowCategoryDetail(false)}
+        onUpdateCategory={async (cat) => {
+          const ok = await updateCategory(cat.id, cat);
+          if (ok) {
+            setSelectedCategoryId(cat.id);
+            PremiumHaptics.success();
+          }
+        }}
+        onDeleteCategory={async (categoryId) => {
+          const ok = await deleteCategory(categoryId);
+          if (ok) {
+            setShowCategoryDetail(false);
+            PremiumHaptics.success();
+          }
+        }}
+        onAddTransaction={async (tx) => {
+          const ok = await addTransaction(tx);
+          if (ok) PremiumHaptics.success();
         }}
       />
     </SafeAreaView>
@@ -209,44 +303,78 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Metrics.screenPadding,
+    paddingBottom: Spacing.md,
+    paddingTop: Metrics.headerTop,
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoText: { fontSize: 22 },
-  logoTitle: { fontSize: 18, fontWeight: '500', color: Colors.text, letterSpacing: -0.5 },
-  editBtn: {
-    width: 38, height: 38, borderRadius: 12, 
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center', justifyContent: 'center',
-    ...Shadow.card,
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoTitle: { ...Fonts.primary, ...Fonts.black, fontSize: 22, color: Colors.text, letterSpacing: 1.5 },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+  settingsIcon: { fontSize: 16, color: Colors.text },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 130 }, 
-  incomeCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#ffffffb2', borderRadius: 24, padding: 20,
-    marginBottom: 8,
-    ...Shadow.medium,
+  scrollContent: { paddingHorizontal: Metrics.screenPadding, paddingBottom: Metrics.fabBottomElevated },
+  insightBox: {
+    padding: 14,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.sm,
+    ...Shadow.soft,
   },
-  incomeTitle: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1.2 },
-  incomeAmt: { fontSize: 20, fontWeight: '500', color: Colors.green, letterSpacing: -0.5 },
-  addCatBtn: {
-    backgroundColor: '#ffffff66',
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.border,
-    borderRadius: 20, padding: 20, alignItems: 'center', marginTop: 12, marginBottom: 20,
+  insightTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  insightChip: {
+    backgroundColor: Colors.accentSoft,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  addCatText: { fontSize: 12, color: '#A1A1AA', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 1 },
-  subsCard: {
-    backgroundColor: '#ffffffb2', borderRadius: 24, padding: 20,
-    ...Shadow.medium,
+  insightChipText: { ...Fonts.primary, ...Fonts.bold, fontSize: 10, color: Colors.accent, textTransform: 'uppercase', letterSpacing: 0.6 },
+  insightHint: { ...Fonts.primary, fontSize: 10, color: Colors.textMuted },
+  insightText: { ...Fonts.primary, fontSize: 13, color: Colors.text, lineHeight: 18 },
+  insightStrong: { ...Fonts.bold },
+  balanceSection: { marginBottom: Spacing.xl, alignItems: 'center' },
+  balanceLabel: { ...Fonts.primary, fontSize: 11, ...Fonts.black, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  balanceAmt: { ...Fonts.primary, ...Fonts.black, fontSize: 44, color: Colors.text, marginTop: 8 },
+  balanceMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent },
+  balanceStatus: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary },
+  addBtn: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.borderStrong,
+    marginTop: Spacing.sm,
+    minHeight: 52,
   },
+  addBtnText: { ...Fonts.primary, ...Fonts.bold, fontSize: 13, color: Colors.textSecondary },
   fab: {
-    position: 'absolute', right: 20, bottom: 120, 
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#1E1E2D',
-    alignItems: 'center', justifyContent: 'center',
-    ...Shadow.fab,
+    position: 'absolute',
+    right: Metrics.screenPadding,
+    bottom: Metrics.fabBottom,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.medium,
   },
-  fabText: { color: '#fff', fontSize: 28, fontWeight: '200' },
+  fabText: { color: Colors.white, fontSize: 30, fontWeight: '300', marginTop: -2 },
 });

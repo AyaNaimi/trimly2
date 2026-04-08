@@ -1,133 +1,167 @@
 // src/screens/Subscriptions/SubDetailModal.js
 import React from 'react';
 import { View, Text, Modal, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { Colors, Shadow } from '../../theme';
+import { Colors, Fonts, Radius, Spacing, Shadow, Layout } from '../../theme';
+import { PremiumHaptics } from '../../utils/haptics';
 import { formatDateFull, annualEquivalent, monthlyEquivalent } from '../../utils/dateUtils';
+import { useApp } from '../../context/AppContext';
 
 export default function SubDetailModal({ sub, billing, onClose, onCancel, onGenerateLetter }) {
+  const { state } = useApp();
   if (!sub) return null;
   const annual = annualEquivalent(sub.amount, sub.cycle);
   const monthly = monthlyEquivalent(sub.amount, sub.cycle);
+  const currency = state.currency || '€';
 
   const cycleFr = { weekly: 'semaine', monthly: 'mois', quarterly: 'trimestre', annual: 'an' };
 
   return (
-    <Modal visible={true} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.wrap}>
-        <View style={styles.handle} />
-        <Pressable onPress={onClose} style={styles.closeBtn}>
-          <Text style={styles.closeTxt}>✕</Text>
-        </Pressable>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => { PremiumHaptics.selection(); onClose(); }} style={styles.closeBtn}>
+            <Text style={styles.closeTxt}>✕</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Détails</Text>
+          <View style={{ width: 32 }} />
+        </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.iconWrap}>
-            <View style={[styles.iconCircle, { backgroundColor: sub.color + '22' }]}>
-              <Text style={{ fontSize: 40 }}>{sub.icon}</Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {/* Main Info */}
+          <View style={styles.hero}>
+            <View style={[styles.iconCircle, { backgroundColor: sub.color + '15' }]}>
+              <Text style={{ fontSize: 44 }}>{sub.icon}</Text>
             </View>
             <Text style={styles.subName}>{sub.name}</Text>
             <Text style={styles.subCat}>{sub.category}</Text>
+            
             {!sub.active && (
               <View style={styles.cancelledBadge}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.textSecondary }}>Résilié</Text>
+                <Text style={styles.cancelledTxt}>Résilié</Text>
               </View>
             )}
           </View>
 
-          {/* Trial warning */}
+          {/* Trial / Leap Year Notices */}
           {billing.isTrial && (
-            <View style={styles.trialWarning}>
-              <Text style={styles.trialWarnTitle}>⏰  Essai gratuit en cours</Text>
-              <Text style={styles.trialWarnBody}>
-                Se termine dans {billing.trialDaysLeft} jour{billing.trialDaysLeft > 1 ? 's' : ''} le {formatDateFull(billing.trialEndsAt)}.
-                {'\n'}Après : {sub.amount.toFixed(2)} €/{cycleFr[sub.cycle] || 'mois'}
+            <View style={[Layout.glassCard, styles.noticeCard, { borderColor: Colors.accent }]}>
+              <Text style={styles.noticeTitle}>⏰ Essai gratuit actif</Text>
+              <Text style={styles.noticeBody}>
+                Fin de l'essai le {formatDateFull(billing.trialEndsAt)}. 
+                Ensuite, {sub.amount.toFixed(2)} {currency} par {cycleFr[sub.cycle] || 'mois'}.
               </Text>
             </View>
           )}
 
-          {/* Leap year notice */}
-          {sub.leapDayStart && (
-            <View style={styles.leapNotice}>
-              <Text style={{ fontSize: 13, color: '#92400E' }}>
-                ℹ️ Commencé le 29 fév. — prélèvement le 28 fév. les années non bissextiles
-              </Text>
-            </View>
-          )}
-
-          {/* Stats grid */}
+          {/* Economics Grid */}
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLbl}>Par {cycleFr[sub.cycle] || 'mois'}</Text>
-              <Text style={styles.statVal}>{billing.isTrial ? 'Gratuit' : `${sub.amount.toFixed(2)} €`}</Text>
+            <View style={[styles.statItem, { backgroundColor: Colors.surface }]}>
+              <Text style={styles.statLabel}>Par {cycleFr[sub.cycle] || 'mois'}</Text>
+              <Text style={styles.statValue}>{billing.isTrial ? `0.00 ${currency}` : `${sub.amount.toFixed(2)} ${currency}`}</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLbl}>Par mois</Text>
-              <Text style={styles.statVal}>{monthly.toFixed(2)} €</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLbl}>Par an</Text>
-              <Text style={styles.statVal}>{annual.toFixed(2)} €</Text>
+            <View style={[styles.statItem, { backgroundColor: Colors.surface }]}>
+              <Text style={styles.statLabel}>Lissage mensuel</Text>
+              <Text style={styles.statValue}>{monthly.toFixed(2)} {currency}</Text>
             </View>
           </View>
 
-          {/* Info rows */}
-          <View style={styles.infoCard}>
-            <InfoRow label="Prochain prélèvement" value={billing.isTrial ? `Fin essai: ${formatDateFull(billing.trialEndsAt)}` : formatDateFull(billing.nextChargeDate)} highlight={billing.urgency === 'urgent' || billing.urgency === 'today'} />
-            <InfoRow label="Date de début" value={formatDateFull(new Date(sub.startDate))} />
-            <InfoRow label="Fréquence" value={{ weekly: 'Hebdomadaire', monthly: 'Mensuel', quarterly: 'Trimestriel', annual: 'Annuel' }[sub.cycle]} />
-            {sub.trialDays > 0 && <InfoRow label="Durée essai" value={`${sub.trialDays} jours`} />}
-            {sub.cancelledAt && <InfoRow label="Résilié le" value={formatDateFull(new Date(sub.cancelledAt))} danger />}
+          {/* Detailed Info */}
+          <View style={[Layout.glassCard, styles.infoCard]}>
+            <DetailRow 
+              label="Prochain prélèvement" 
+              value={billing.isTrial ? formatDateFull(billing.trialEndsAt) : formatDateFull(billing.nextChargeDate)} 
+              highlight={billing.urgency === 'urgent' || billing.urgency === 'today'}
+            />
+            <DetailRow label="Date de souscription" value={formatDateFull(new Date(sub.startDate))} />
+            <DetailRow label="Fréquence" value={{ weekly: 'Hebdomadaire', monthly: 'Mensuel', quarterly: 'Trimestriel', annual: 'Annuel' }[sub.cycle]} />
+            <DetailRow label="Équivalent annuel" value={`${annual.toFixed(2)} ${currency}`} />
+            {sub.cancelledAt && <DetailRow label="Date de résiliation" value={formatDateFull(new Date(sub.cancelledAt))} danger />}
           </View>
 
           {/* Actions */}
           {sub.active && (
             <View style={styles.actions}>
-              <Pressable style={styles.letterBtn} onPress={onGenerateLetter}>
-                <Text style={styles.letterTxt}>✉️  Générer lettre de résiliation</Text>
+              <Pressable 
+                style={styles.actionBtnSecondary} 
+                onPress={() => { PremiumHaptics.selection(); onGenerateLetter(); }}
+              >
+                <Text style={styles.actionTxtSecondary}>✉️ Générer une lettre</Text>
               </Pressable>
-              <Pressable style={styles.cancelBtn} onPress={onCancel}>
-                <Text style={styles.cancelTxt}>Résilier cet abonnement</Text>
+              
+              <Pressable 
+                style={styles.actionBtnDanger} 
+                onPress={() => { PremiumHaptics.notification(true); onCancel(); }}
+              >
+                <Text style={styles.actionTxtDanger}>Résilier l'abonnement</Text>
               </Pressable>
             </View>
           )}
-          <View style={{ height: 40 }} />
+          
+          <View style={{ height: 60 }} />
         </ScrollView>
       </View>
     </Modal>
   );
 }
 
-function InfoRow({ label, value, highlight, danger }) {
+function DetailRow({ label, value, highlight, danger }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
-      <Text style={{ fontSize: 14, color: Colors.textSecondary, fontWeight: '600' }}>{label}</Text>
-      <Text style={{ fontSize: 14, fontWeight: '700', color: danger ? Colors.red : highlight ? Colors.red : Colors.text }}>{value}</Text>
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailValue, highlight && { color: Colors.error }, danger && { color: Colors.error }]}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 20 },
-  handle: { width: 40, height: 5, backgroundColor: Colors.border, borderRadius: 100, alignSelf: 'center', marginTop: 10, marginBottom: 16 },
-  closeBtn: { position: 'absolute', right: 20, top: 30, width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  closeTxt: { fontSize: 14, color: Colors.textSecondary },
-  iconWrap: { alignItems: 'center', marginBottom: 24, marginTop: 16 },
-  iconCircle: { width: 80, height: 80, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  subName: { fontSize: 24, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
-  subCat: { fontSize: 14, color: Colors.textSecondary, fontWeight: '600', marginTop: 4 },
-  cancelledBadge: { backgroundColor: Colors.border, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100, marginTop: 8 },
-  trialWarning: { backgroundColor: Colors.amberLight, borderRadius: 14, padding: 14, marginBottom: 14 },
-  trialWarnTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 6 },
-  trialWarnBody: { fontSize: 13, color: '#78350F', lineHeight: 19 },
-  leapNotice: { backgroundColor: Colors.amberLight, borderRadius: 10, padding: 12, marginBottom: 14 },
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  statCard: { flex: 1, backgroundColor: Colors.bg, borderRadius: 12, padding: 14 },
-  statLbl: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  statVal: { fontSize: 18, fontWeight: '900', color: Colors.text, marginTop: 4, letterSpacing: -0.5 },
-  infoCard: { backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 16, borderWidth: 1.5, borderColor: Colors.border, marginBottom: 16 },
-  actions: { gap: 10 },
-  letterBtn: { backgroundColor: Colors.purpleLight, borderRadius: 14, padding: 16, alignItems: 'center' },
-  letterTxt: { fontSize: 15, fontWeight: '700', color: Colors.purple },
-  cancelBtn: { backgroundColor: Colors.redLight, borderRadius: 14, padding: 16, alignItems: 'center' },
-  cancelTxt: { fontSize: 15, fontWeight: '700', color: Colors.red },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  header: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: Spacing.xl, paddingVertical: 20,
+    backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border
+  },
+  headerTitle: { ...Fonts.serif, fontSize: 18, color: Colors.text },
+  closeBtn: { padding: 4 },
+  closeTxt: { fontSize: 20, color: Colors.textSecondary },
+  
+  scroll: { padding: Spacing.xl },
+  hero: { alignItems: 'center', marginBottom: 32, marginTop: 12 },
+  iconCircle: { width: 100, height: 100, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center', marginBottom: 20, ...Shadow.sm },
+  subName: { ...Fonts.serif, fontSize: 32, color: Colors.text, letterSpacing: -0.5 },
+  subCat: { ...Fonts.sans, fontSize: 16, color: Colors.textSecondary, marginTop: 6, ...Fonts.medium },
+  
+  cancelledBadge: { backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.pill, marginTop: 12, borderWidth: 1, borderColor: Colors.border },
+  cancelledTxt: { ...Fonts.sans, fontSize: 12, color: Colors.textSecondary, ...Fonts.bold },
+  
+  noticeCard: { padding: 16, marginBottom: 24, backgroundColor: Colors.accent + '05' },
+  noticeTitle: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.accent, marginBottom: 4 },
+  noticeBody: { ...Fonts.sans, fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
+  
+  statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statItem: { flex: 1, padding: 16, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  statLabel: { ...Fonts.sans, fontSize: 11, ...Fonts.bold, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
+  statValue: { ...Fonts.serif, fontSize: 20, color: Colors.text, marginTop: 8 },
+  
+  infoCard: { padding: 8, marginBottom: 32 },
+  detailRow: { 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
+    padding: 12, borderBottomWidth: 1, borderBottomColor: Colors.border 
+  },
+  detailLabel: { ...Fonts.sans, fontSize: 14, color: Colors.textSecondary, ...Fonts.medium },
+  detailValue: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.text },
+  
+  actions: { gap: 12 },
+  actionBtnSecondary: { 
+    backgroundColor: Colors.white, borderRadius: Radius.md, padding: 18, 
+    alignItems: 'center', borderWidth: 1, borderColor: Colors.border, ...Shadow.sm 
+  },
+  actionTxtSecondary: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: Colors.text },
+  actionBtnDanger: { 
+    backgroundColor: Colors.surface, borderRadius: Radius.md, padding: 18, 
+    alignItems: 'center', borderWidth: 1, borderColor: Colors.border 
+  },
+  actionTxtDanger: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: Colors.error },
 });
+

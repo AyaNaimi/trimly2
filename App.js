@@ -8,6 +8,16 @@ import * as Notifications from 'expo-notifications';
 
 import { AppProvider } from './src/context/AppContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import SyncLoader from './src/components/SyncLoader';
+
+function MainApp() {
+  return (
+    <>
+      <AppNavigator />
+      <SyncLoader />
+    </>
+  );
+}
 
 // Handle notification taps (foreground)
 Notifications.setNotificationHandler({
@@ -23,9 +33,7 @@ export default function App() {
     // Listen for notification interactions
     const sub = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
-      // Navigate to relevant screen based on notification type
       if (data?.type === 'upcoming' || data?.type === 'trial-ending') {
-        // Navigate to Subscriptions tab
         console.log('Navigate to subscription:', data.subscriptionId);
       }
     });
@@ -37,7 +45,7 @@ export default function App() {
       <SafeAreaProvider>
         <AppProvider>
           <StatusBar style="dark" />
-          <AppNavigator />
+          <MainApp />
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

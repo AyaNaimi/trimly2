@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "scan-emails-imap": {
+      "include": ["index.ts"]
+    }
+  }
+}

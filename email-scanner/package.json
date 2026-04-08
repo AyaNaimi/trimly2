@@ -1,0 +1,14 @@
+{
+  "name": "trimly-email-scanner",
+  "version": "1.0.0",
+  "description": "Email scanner for Trimly app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.6.5"
+  }
+}

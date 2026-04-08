@@ -1,0 +1,14 @@
+# This is an example configuration file
+name: Example Config with Local Models
+version: 1.0.0
+schema: v1
+
+# --- SECTION CRUCIALE POUR LM STUDIO ---
+# Vous devez indiquer à Continue où se trouve l'API locale de LM Studio.
+# L'endpoint est généralement : http://localhost:<PORT>/v1/chat/completions
+
+models:
+  - name: gemma-local
+    provider: openai # On utilise le format OpenAI pour pointer vers un serveur local
+    model: google/gemma-4-e4b # Le nom doit correspondre au modèle que vous avez servi dans LM Studio
+    apiBase: http://localhost:1234/api/v1/chat # <-- CHANGEZ CE PORT et CETTE URL !

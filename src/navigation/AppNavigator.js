@@ -1,6 +1,6 @@
 // src/navigation/AppNavigator.js
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,63 +12,52 @@ import TransactionsScreen from '../screens/Transactions/TransactionsScreen';
 import SubscriptionsScreen from '../screens/Subscriptions/SubscriptionsScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
+import LoginScreen from '../screens/Auth/LoginScreen';
 
 import { useApp } from '../context/AppContext';
-import { Colors, Shadow } from '../theme';
+import { Colors, Shadow, Fonts, Radius, Spacing } from '../theme';
 import { getNextBilling } from '../utils/dateUtils';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-import * as Haptics from 'expo-haptics';
 import { PremiumHaptics } from '../utils/haptics';
 
-// Custom tab bar matching Luna exactly
-function LunaTabBar({ state, descriptors, navigation }) {
+// Custom tab bar - Premium Floating Glass
+function LunaTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
   const { activeSubscriptions } = useApp();
 
-  // Count urgent subs (≤2 days)
   const urgentCount = activeSubscriptions.filter(s => {
     const b = getNextBilling(s);
     return !b.isTrial && b.daysUntilCharge <= 2;
   }).length;
 
-  const tabs = [
-    { key: 'Home', icon: '⌂', label: 'Accueil' },
-    { key: 'Reports', icon: '📊', label: 'Rapports' },
-    { key: 'Transactions', icon: '💳', label: 'Transactions' },
-    { key: 'Subscriptions', icon: '🔄', label: 'Abonnements', badge: urgentCount },
-    { key: 'Settings', icon: '⚙', label: 'Réglages' },
-  ];
-
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { bottom: Math.max(insets.bottom, 16) }]}>
       {state.routes.map((route, index) => {
         const focused = state.index === index;
-        const tab = tabs.find(t => t.key === route.name) || tabs[index];
-
         const handlePress = () => {
-          PremiumHaptics.nav(); // New Lock-in fancy feel
+          PremiumHaptics.nav();
           navigation.navigate(route.name);
         };
+
+        const labels = ['Bord', 'Flux', 'Journal', 'Plans', 'Profil'];
+        const iconColor = focused ? Colors.text : Colors.white;
 
         return (
           <Pressable
             key={route.key}
             onPress={handlePress}
-            style={styles.tabBtn}
+            style={[styles.tabBtn, focused && styles.tabBtnActive]}
           >
-            {tab.badge > 0 && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{tab.badge}</Text>
+            {focused && (
+              <View style={styles.activeCapsule}>
+                <TabIcon name={route.name} focused={focused} color={iconColor} />
+                <Text style={styles.tabLabelActive}>{labels[index]}</Text>
               </View>
             )}
-            <TabIcon name={route.name} focused={focused} />
-            <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
-              {tab.label}
-            </Text>
-            {focused && <View style={styles.tabIndicator} />}
+            {!focused && <TabIcon name={route.name} focused={focused} color={iconColor} />}
           </Pressable>
         );
       })}
@@ -76,68 +65,66 @@ function LunaTabBar({ state, descriptors, navigation }) {
   );
 }
 
-function TabIcon({ name, focused }) {
-  const color = focused ? Colors.purple : Colors.textSecondary;
-  const size = 22;
+function TabIcon({ name, focused, color: customColor }) {
+  const color = customColor || (focused ? Colors.text : Colors.white);
+  const size = 18; // Smaller icons to match the image
 
   const icons = {
-    Home: (
-      <HouseIcon size={size} color={color} focused={focused} />
-    ),
-    Reports: (
-      <BarIcon size={size} color={color} />
-    ),
-    Transactions: (
-      <CardIcon size={size} color={color} />
-    ),
-    Subscriptions: (
-      <BoxIcon size={size} color={color} />
-    ),
-    Settings: (
-      <GearIcon size={size} color={color} />
-    ),
+    Home: <HouseIcon size={size} color={color} focused={focused} />,
+    Reports: <BarIcon size={size} color={color} focused={focused} />,
+    Transactions: <CardIcon size={size} color={color} focused={focused} />,
+    Subscriptions: <BoxIcon size={size} color={color} focused={focused} />,
+    Settings: <GearIcon size={size} color={color} focused={focused} />,
   };
 
   return icons[name] || null;
 }
 
-// SVG-like icons using View/Text combinations
 function HouseIcon({ size, color, focused }) {
+  const sw = focused ? 2.0 : 1.2;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size - 2, color }}>⌂</Text>
+      <View style={{ width: size - 2, height: size * 0.45, borderTopWidth: sw, borderLeftWidth: sw, borderRightWidth: sw, borderColor: color, borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+      <View style={{ width: size - 2, height: size * 0.35, borderWidth: sw, borderTopWidth: 0, borderColor: color, borderBottomLeftRadius: 2, borderBottomRightRadius: 2 }} />
     </View>
   );
 }
-function BarIcon({ size, color }) {
+function BarIcon({ size, color, focused }) {
+  const sw = focused ? 2.5 : 1.5;
   return (
-    <View style={{ width: size, height: size, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 2 }}>
-      {[0.4, 0.7, 1.0].map((h, i) => (
-        <View key={i} style={{ width: 4, height: size * h, backgroundColor: color, borderRadius: 2 }} />
-      ))}
+    <View style={{ width: size, height: size, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 3 }}>
+      <View style={{ width: sw, height: size * 0.4, backgroundColor: color, borderRadius: sw / 2 }} />
+      <View style={{ width: sw, height: size * 0.75, backgroundColor: color, borderRadius: sw / 2 }} />
+      <View style={{ width: sw, height: size * 1.0, backgroundColor: color, borderRadius: sw / 2 }} />
     </View>
   );
 }
-function CardIcon({ size, color }) {
+function CardIcon({ size, color, focused }) {
+  const sw = focused ? 2.0 : 1.2;
   return (
-    <View style={{ width: size, height: size * 0.75, borderRadius: 3, borderWidth: 1.8, borderColor: color, overflow: 'hidden', justifyContent: 'center' }}>
-      <View style={{ height: 4, backgroundColor: color, marginTop: 2 }} />
+    <View style={{ width: size + 2, height: size * 0.7, borderRadius: 4, borderWidth: sw, borderColor: color, justifyContent: 'center' }}>
+      <View style={{ width: '100%', height: sw, backgroundColor: color, position: 'absolute', top: 3 }} />
+      <View style={{ width: 4, height: 3, borderRadius: 1, backgroundColor: color, marginLeft: 3, marginTop: 4 }} />
     </View>
   );
 }
-function BoxIcon({ size, color }) {
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: size - 2, height: size - 2, borderWidth: 1.8, borderColor: color, borderRadius: 4, transform: [{ rotate: '45deg' }] }} />
-    </View>
-  );
-}
-function GearIcon({ size, color }) {
+function BoxIcon({ size, color, focused }) {
+  const sw = focused ? 2.0 : 1.2;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: size * 0.55, height: size * 0.55, borderRadius: size * 0.275, borderWidth: 1.8, borderColor: color }} />
-      {[0, 45, 90, 135].map(a => (
-        <View key={a} style={{ position: 'absolute', width: 3, height: size * 0.25, backgroundColor: color, borderRadius: 2, top: 0, left: '50%', transform: [{ rotate: `${a}deg` }, { translateY: -2 }] }} />
+      <View style={{ width: size - 4, height: size - 4, borderWidth: sw, borderColor: color, borderRadius: 3 }} />
+      <View style={{ position: 'absolute', width: size - 6, height: sw, backgroundColor: color }} />
+    </View>
+  );
+}
+function GearIcon({ size, color, focused }) {
+  const sw = focused ? 2.0 : 1.2;
+  const r = size * 0.4;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: r, height: r, borderRadius: r / 2, borderWidth: sw, borderColor: color }} />
+      {[0, 60, 120, 180, 240, 300].map(a => (
+        <View key={a} style={{ position: 'absolute', width: sw, height: size * 0.15, backgroundColor: color, borderRadius: sw / 2, top: 1, transform: [{ rotate: `${a}deg` }, { translateY: -1 }] }} />
       ))}
     </View>
   );
@@ -165,8 +152,15 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, animationEnabled: true }}>
-        {!state.onboardingComplete ? (
+      <Stack.Navigator screenOptions={{ 
+        headerShown: false, 
+        animationEnabled: true,
+        animationTypeForReplace: 'push',
+        gestureEnabled: true,
+      }}>
+        {!state.session ? (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        ) : !state.onboardingComplete ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <Stack.Screen name="Main" component={MainTabs} />
@@ -178,66 +172,63 @@ export default function AppNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffffEE', // Chic subtle transparency
-    borderRadius: 32,
-    marginHorizontal: 16,
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 24, // Floating from the bottom
-    ...Shadow.medium,
-    borderWidth: 1.5,
-    borderColor: Colors.border, // Visible border
-    paddingTop: 8,
-    paddingHorizontal: 8,
-    paddingBottom: 4,
+    left: 20,
+    right: 20,
+    bottom: Platform.select({ ios: 34, android: 24 }),
+    borderRadius: 32,
+    ...Shadow.premium,
+    backgroundColor: Colors.white,
+    borderWidth: 0,
+    backgroundColor: Colors.text, // Darker Slate / Black from the image
+    height: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
   },
   tabBtn: {
     flex: 1,
+    height: '100%',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 24,
-    position: 'relative',
+    justifyContent: 'center',
   },
   tabBtnActive: {
-    backgroundColor: 'transparent', // No background for active button to keep it minimal
+    flex: 2.2, // Give space for the capsule
   },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '400',
-    color: Colors.textSecondary,
-    marginTop: 4,
-    letterSpacing: 0.2,
+  activeCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9', // Subtle light gray for contrast
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    gap: 8,
   },
   tabLabelActive: {
-    color: Colors.purple,
-    fontWeight: '500',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.purple,
+    ...Fonts.sans,
+    fontSize: 12,
+    color: Colors.text,
+    ...Fonts.bold,
   },
   tabBadge: {
     position: 'absolute',
-    top: 4,
-    right: 12,
-    backgroundColor: Colors.red,
-    borderRadius: 9,
+    top: 10,
+    right: '25%',
+    backgroundColor: Colors.accent,
+    borderRadius: 8,
     minWidth: 16,
     height: 16,
-    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
+    zIndex: 10,
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   tabBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
+    color: Colors.white,
+    fontSize: 8,
+    ...Fonts.black,
   },
 });
+

@@ -64,6 +64,42 @@ export function addWeeks(date, weeks) {
   return d;
 }
 
+export function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+export function startOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function endOfWeek(date) {
+  const d = startOfWeek(date);
+  d.setDate(d.getDate() + 6);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+export function startOfMonth(date) {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function endOfMonth(date) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + 1, 0);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 /**
  * Advance a date by one billing cycle
  */
@@ -249,6 +285,20 @@ export function formatDateFull(date) {
   return new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+export function formatMonthYear(date) {
+  return new Date(date).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+}
+
+export function formatWeekRange(date) {
+  const start = startOfWeek(date);
+  const end = endOfWeek(date);
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  if (sameMonth) {
+    return `${start.getDate()} - ${end.getDate()} ${end.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`;
+  }
+  return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
 /**
  * Check if a date is Feb 29
  * Used to show "leap year notice" on subscription detail
@@ -265,19 +315,19 @@ export function getNotificationMessage(sub, daysUntil) {
   const amount = sub.amount.toFixed(2);
   if (daysUntil <= 0) {
     return {
-      title: `💳 Prélèvement aujourd'hui`,
-      body: `${sub.name} – ${amount}€ sera débité aujourd'hui`,
+      title: `${sub.name} aujourd'hui`,
+      body: `Prelevement prevu aujourd'hui: ${amount} EUR.`,
     };
   }
   if (daysUntil === 1) {
     return {
-      title: `⚠️ Prélèvement demain`,
-      body: `${sub.name} – ${amount}€ sera débité demain`,
+      title: `${sub.name} demain`,
+      body: `Rappel: ${amount} EUR seront preleves demain.`,
     };
   }
   return {
-    title: `🔔 Prélèvement dans ${daysUntil} jours`,
-    body: `${sub.name} – ${amount}€ le ${formatDate(new Date())}`,
+    title: `${sub.name} dans ${daysUntil} jours`,
+    body: `Prelevement a venir: ${amount} EUR.`,
   };
 }
 

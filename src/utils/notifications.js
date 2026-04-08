@@ -33,13 +33,13 @@ export async function requestNotificationPermissions() {
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('subscriptions', {
-      name: 'Prélèvements',
+      name: 'Prelevements',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#5B3BF5',
     });
     await Notifications.setNotificationChannelAsync('reminders', {
-      name: 'Rappels dépenses',
+      name: 'Rappels budget',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
@@ -137,8 +137,8 @@ export async function scheduleAllSubscriptionNotifications(subscriptions) {
       if (triggerDate > new Date()) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `⏰ Essai ${sub.name} se termine bientôt`,
-            body: `Votre essai gratuit se termine dans 3 jours. Après: ${sub.amount.toFixed(2)}€/${cycleFr(sub.cycle)}`,
+            title: `${sub.name} passe bientot en payant`,
+            body: `Essai gratuit: plus que 3 jours. Ensuite ${sub.amount.toFixed(2)} EUR par ${cycleFr(sub.cycle)}.`,
             data: { subscriptionId: sub.id, type: 'trial-ending' },
           },
           trigger: { date: triggerDate, channelId: 'subscriptions' },
@@ -165,10 +165,10 @@ export async function scheduleDailyReminders(level) {
   if (level === 0) return;
 
   const messages = [
-    "Avez-vous noté vos dépenses d'aujourd'hui ? 👀",
-    "N'oubliez pas de tracker votre budget ! 💰",
-    "Un petit coup d'œil sur vos finances ? 📊",
-    "Votre budget vous attend ! Quelques secondes suffisent 🎯",
+    "Ajoutez vos depenses du jour pour garder un journal propre.",
+    "Un rapide point budget maintenant peut vous eviter un ecart ce soir.",
+    "Quelques secondes suffisent pour mettre vos mouvements a jour.",
+    "Votre journal attend peut-etre encore une ou deux depenses.",
   ];
 
   const times = [
@@ -184,7 +184,7 @@ export async function scheduleDailyReminders(level) {
     const [hour, minute] = times[i];
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '💸 Trimly',
+        title: 'Trimly',
         body: messages[i % messages.length],
         data: { type: 'reminder' },
       },

@@ -1,25 +1,47 @@
 // src/components/index.js
-// All shared UI components - Standard Animated Version for Stability
+// Trimly-Minimal: Clean Professional components
 
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Animated, Pressable,
+  View, Text, StyleSheet, Animated, Pressable,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import {
+  Colors, Fonts, Radius, Shadow, Spacing, Layout, Metrics,
+} from '../theme';
 import { PremiumHaptics } from '../utils/haptics';
-import { Colors, Fonts, Radius, Shadow, Spacing } from '../theme';
+import { useApp } from '../context/AppContext';
 
-// ──────────────────────────────────────────────────────
-// ProgressBar with animated fill
-// ──────────────────────────────────────────────────────
+function usePressScale() {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.985,
+      useNativeDriver: true,
+      speed: 26,
+      bounciness: 4,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 5,
+    }).start();
+  };
+
+  return { scale, onPressIn, onPressOut };
+}
+
 export function AnimatedProgressBar({ pct, color, style }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(anim, {
       toValue: Math.min(pct, 100),
-      duration: 700,
+      duration: 600,
       useNativeDriver: false,
     }).start();
   }, [pct]);
@@ -32,101 +54,58 @@ export function AnimatedProgressBar({ pct, color, style }) {
 
   return (
     <View style={[styles.pbTrack, style]}>
-      <Animated.View style={[styles.pbFill, { width, backgroundColor: color || Colors.purple }]} />
+      <Animated.View style={[styles.pbFill, { width, backgroundColor: color || Colors.accent }]} />
     </View>
   );
 }
 
-// ──────────────────────────────────────────────────────
-// CategoryRow
-// ──────────────────────────────────────────────────────
 export function CategoryRow({ category, onPress, simple }) {
+  const { state } = useApp();
   const { name, icon, color, budget, spent } = category;
   const left = budget - spent;
   const isOver = left < 0;
+  const { scale, onPressIn, onPressOut } = usePressScale();
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  
   const handlePress = () => {
-    PremiumHaptics.click(); // Fancy double-click feel
+    PremiumHaptics.click();
     onPress && onPress();
   };
 
-  const pressIn = () => {
-    Animated.spring(scaleAnim, { 
-      toValue: 0.97, 
-      useNativeDriver: true,
-      tension: 180,
-      friction: 12
-    }).start();
-  };
-  
-  const pressOut = () => {
-    Animated.spring(scaleAnim, { 
-      toValue: 1, 
-      useNativeDriver: true,
-      tension: 100,
-      friction: 10
-    }).start();
-  };
-
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <Pressable
-        onPress={handlePress}
-        onPressIn={pressIn}
-        onPressOut={pressOut}
-        style={[
-          styles.catUnifiedCard,
-          simple && styles.catRowSimple,
-          isOver && !simple && { borderColor: Colors.red }
-        ]}
-      >
-        <View style={styles.catTopRow}>
-          <View style={[styles.catIcon, { backgroundColor: color   }]}>
-            <Text style={{ fontSize: 18 }}>{icon}</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.catName}>{name}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={[styles.catSpent, isOver && { color: Colors.red }]}>
-              {left.toFixed(0)} €
-            </Text>
-            <View style={[styles.catPill, { backgroundColor: '#F0F0F3' }]}>
-              <Text style={styles.catPillText}>
-                {spent.toFixed(0)}€ dépensés
-              </Text>
-            </View>
-          </View>
+    <Pressable onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[styles.catMinimalRow, simple && { paddingVertical: 12 }, { transform: [{ scale }] }]}>
+        <View style={[styles.catIcon, { backgroundColor: color + '2E' }]}>
+          <Text style={{ fontSize: 16, color: color }}>{icon}</Text>
         </View>
-      </Pressable>
-    </Animated.View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={styles.catName}>{name}</Text>
+          <Text style={styles.catSubtext}>Budget {budget}{state.currency}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.catSpent, isOver && { color: Colors.error }]}>
+            {spent.toFixed(0)} {state.currency}
+          </Text>
+          <Text style={styles.catLeft}>{left > 0 ? `Restant ${left.toFixed(0)}${state.currency}` : 'Depassement'}</Text>
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
-// ──────────────────────────────────────────────────────
-// CategorySection
-// ──────────────────────────────────────────────────────
 export function CategorySection({ label, daysLeft, budgeted, left, children }) {
+  const { state } = useApp();
   return (
-    <View style={styles.sectionCard}>
+    <View style={styles.sectionMinimal}>
       <View style={styles.sectionHdr}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.sectionLabel}>{label}</Text>
           <Text style={styles.groupDays}>{daysLeft} jours restants</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 20 }}>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.groupColLbl}>Budget</Text>
-            <Text style={styles.groupColVal}>{budgeted.toFixed(0)} €</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.groupColLbl}>Restant</Text>
-            <Text style={[styles.groupColVal, left < 0 && { color: Colors.red }]}>
-              {left.toFixed(2)} €
-            </Text>
-          </View>
+        <View style={styles.sectionStats}>
+          <Text style={[styles.groupColVal, left < 0 && { color: Colors.error }]}>
+            {left.toFixed(0)} {state.currency}
+          </Text>
+          <Text style={styles.groupColLbl}>Restant</Text>
         </View>
       </View>
       <View style={styles.sectionBody}>
@@ -136,31 +115,18 @@ export function CategorySection({ label, daysLeft, budgeted, left, children }) {
   );
 }
 
-// ──────────────────────────────────────────────────────
-// Primary Button
-// ──────────────────────────────────────────────────────
-export function PrimaryButton({ onPress, label, style, loading }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
-  const pressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+export function PrimaryButton({ onPress, label, style }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={pressIn}
-        onPressOut={pressOut}
-        style={[styles.primaryBtn, style]}
-      >
-        <Text style={styles.primaryBtnText}>{label} →</Text>
-      </Pressable>
-    </Animated.View>
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[styles.primaryBtn, style, { transform: [{ scale }] }]}>
+        <Text style={styles.primaryBtnText}>{label}</Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
-// ──────────────────────────────────────────────────────
-// Toggle Switch
-// ──────────────────────────────────────────────────────
 export function Toggle({ value, onChange }) {
   const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
 
@@ -168,8 +134,8 @@ export function Toggle({ value, onChange }) {
     Animated.spring(anim, { toValue: value ? 1 : 0, useNativeDriver: false }).start();
   }, [value]);
 
-  const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [2, 22] });
-  const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: [Colors.border, Colors.purple] });
+  const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [2, 18] });
+  const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: [Colors.borderStrong, Colors.accent] });
 
   return (
     <Pressable onPress={() => onChange(!value)}>
@@ -180,295 +146,259 @@ export function Toggle({ value, onChange }) {
   );
 }
 
-// ──────────────────────────────────────────────────────
-// Sub card
-// ──────────────────────────────────────────────────────
 export function SubCard({ sub, billing, onPress }) {
+  const { state } = useApp();
   const isUrgent = billing.urgency === 'urgent' || billing.urgency === 'today';
-  const isTrial = billing.isTrial;
-
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true }).start();
-  const pressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
-
-  const badge = isTrial
-    ? { bg: Colors.amberLight, color: '#92400E', text: `Essai ${billing.trialDaysLeft}j` }
-    : isUrgent
-      ? { bg: Colors.redLight, color: Colors.red, text: billing.label }
-      : { bg: Colors.greenLight, color: Colors.green, text: billing.label };
+  const { scale, onPressIn, onPressOut } = usePressScale();
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={pressIn}
-        onPressOut={pressOut}
-        style={[
-          styles.subCard,
-          isUrgent && { borderColor: Colors.red, backgroundColor: Colors.redLight },
-          isTrial && { borderColor: Colors.amber, backgroundColor: Colors.amberLight },
-        ]}
-      >
-        <View style={[styles.subIcon, { backgroundColor: sub.color}]}>
-          <Text style={{ fontSize: 22 }}>{sub.icon}</Text>
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[styles.subMinimalCard, isUrgent && { borderColor: Colors.error }, { transform: [{ scale }] }]}>
+        <View style={[styles.subIcon, { backgroundColor: sub.color + '2E' }]}>
+          <Text style={{ fontSize: 18, color: sub.color }}>{sub.icon}</Text>
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.subName}>{sub.name}</Text>
-          <Text style={styles.subCycle}>{cycleFr(sub.cycle)} · {sub.category}</Text>
+          <Text style={styles.subMeta}>{sub.category} - {billing.label}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.subPrice}>
-            {isTrial ? '0,00 €' : `${sub.amount.toFixed(2)} €`}
-          </Text>
-          <View style={[styles.subBadge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.subBadgeText, { color: badge.color }]}>{badge.text}</Text>
-          </View>
+          <Text style={styles.subPrice}>{sub.amount.toFixed(2)} {state.currency}</Text>
+          <Text style={[styles.subUrgency, isUrgent && { color: Colors.error }]}>{billing.urgency.toUpperCase()}</Text>
         </View>
-      </Pressable>
-    </Animated.View>
+      </Animated.View>
+    </Pressable>
   );
 }
 
-function cycleFr(c) {
-  return { weekly: 'Hebdo', monthly: 'Mensuel', quarterly: 'Trimestriel', annual: 'Annuel' }[c] || c;
+export function SettingsRow({ title, value, onPress, children, danger }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
+
+  return (
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[Layout.listItem, styles.settingsRow, { transform: [{ scale }] }]}>
+        <Text style={[styles.settingsTitle, danger && { color: Colors.error }]}>{title}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
+          {children}
+          {onPress && !children ? <Text style={styles.chevron}>›</Text> : null}
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
 }
 
-// ──────────────────────────────────────────────────────
-// Helper components
-// ──────────────────────────────────────────────────────
 export function SecondaryButton({ onPress, label = '←', style }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
+
   return (
-    <Pressable onPress={onPress} style={[styles.secondaryBtn, style]}>
-      <Text style={styles.secondaryBtnText}>{label}</Text>
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={[styles.secondaryBtn, style, { transform: [{ scale }] }]}>
+        <Text style={styles.secondaryBtnText}>{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
 
 export function PeriodPill({ label, onPress }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
+
   return (
-    <Pressable style={styles.periodPill} onPress={onPress}>
-      <Text style={styles.periodPillText}>{label}</Text>
-      <Text style={{ color: Colors.purple, marginLeft: 4 }}>▾</Text>
+    <Pressable style={styles.periodPill} onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View style={{ flexDirection: 'row', alignItems: 'center', transform: [{ scale }] }}>
+        <Text style={styles.periodPillText}>{label}</Text>
+        <Text style={{ color: Colors.accent, marginLeft: 6, fontSize: 12 }}>▼</Text>
+      </Animated.View>
     </Pressable>
   );
 }
 
-export function AlertBanner({ alerts }) {
-  if (!alerts || alerts.length === 0) return null;
-  return (
-    <View style={styles.alertWrap}>
-      <Text style={styles.alertLabel}>⚠️  Prélèvements à venir</Text>
-      {alerts.map((item, i) => (
-        <View key={i} style={styles.alertItem}>
-          <View>
-            <Text style={styles.alertName}>{item.sub.icon}  {item.sub.name}</Text>
-            <Text style={styles.alertDays}>{item.billing.label}</Text>
-          </View>
-          <Text style={styles.alertAmt}>{item.billing.nextChargeAmount.toFixed(2)} €</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// ──────────────────────────────────────────────────────
-// Trial Banner (Subscription Ticket)
-// ──────────────────────────────────────────────────────
 export function TrialBanner({ daysLeft, onSubscribe, onClose }) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
+  const dayLabel = daysLeft > 1 ? 'jours' : 'jour';
+  const urgencyCopy = daysLeft <= 3
+    ? 'Derniers jours pour conserver tous les avantages Pro.'
+    : "Passez a Pro pour garder l'acces complet a l'experience.";
   return (
-    <View style={styles.trialContainer}>
-      <View style={styles.trialGlassCard}>
-        <View style={styles.trialSideBar} />
-        <View style={{ flex: 1, paddingLeft: 12 }}>
-          <Text style={styles.trialOverline}>PRO TRIAL</Text>
-          <Text style={styles.trialMainText}>
-            Votre essai gratuit expire dans <Text style={{ fontWeight: '700' }}>{daysLeft} jours</Text>.
-          </Text>
-          <Pressable 
-            style={styles.trialCTA} 
+    <View style={styles.trialBanner}>
+      <View style={styles.trialBannerCopy}>
+        <Text style={styles.trialBannerText}>Plus que {daysLeft} {dayLabel}</Text>
+        <View style={styles.trialBannerDaysPill}>
+          <Text style={styles.trialBannerDaysLabel}>Essai gratuit</Text>
+        </View>
+        <Text style={styles.trialBannerSubtext}>{urgencyCopy}</Text>
+        <View style={styles.trialBannerActions}>
+          <Pressable
             onPress={() => {
               PremiumHaptics.success();
               onSubscribe && onSubscribe();
             }}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
           >
-            <Text style={styles.trialCTAText}>S'abonner maintenant</Text>
+            <Animated.View style={[styles.trialBannerCta, { transform: [{ scale }] }]}>
+              <Text style={styles.trialBannerCtaText}>Voir Pro</Text>
+            </Animated.View>
+          </Pressable>
+          <Pressable
+            style={styles.trialBannerClose}
+            onPress={() => {
+              PremiumHaptics.click();
+              onClose && onClose();
+            }}
+          >
+            <Text style={styles.trialBannerCloseText}>Plus tard</Text>
           </Pressable>
         </View>
-        <Pressable 
-          style={styles.trialHideBtn} 
-          onPress={() => {
-            PremiumHaptics.click();
-            onClose && onClose();
-          }}
-        >
-          <View style={styles.trialCheckCircle}>
-            <Text style={styles.trialCheckText}>✓</Text>
-          </View>
-        </Pressable>
       </View>
     </View>
   );
 }
 
-export function SettingsRow({ title, value, onPress, children, danger }) {
-  return (
-    <Pressable onPress={onPress} style={styles.settingsRow}>
-      <Text style={[styles.settingsTitle, danger && { color: Colors.red }]}>{title}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
-        {children}
-        {onPress && !children ? <Text style={styles.chevron}>›</Text> : null}
-      </View>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  pbTrack: { height: 4, backgroundColor: Colors.border, borderRadius: 100, overflow: 'hidden' },
-  pbFill: { height: '100%', borderRadius: 100 },
-  catUnifiedCard: {
-    backgroundColor: Colors.white, borderRadius: 20, padding: 16, marginBottom: 10,
-    ...Shadow.medium,
+  pbTrack: { height: 6, backgroundColor: Colors.border, borderRadius: Radius.pill, overflow: 'hidden' },
+  pbFill: { height: '100%', borderRadius: Radius.pill },
+
+  catMinimalRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    minHeight: Metrics.minTouch + 8,
   },
-  catTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  catRowSimple: {
-    marginBottom: 0, borderWidth: 0, borderRadius: 0,
-    backgroundColor: 'transparent', shadowOpacity: 0, elevation: 0,
-    paddingHorizontal: 0, paddingVertical: 14,
-  },
-  catIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  catName: { fontSize: 14, fontWeight: '400', color: Colors.text, letterSpacing: 0.1 },
-  catSpent: { fontSize: 13, fontWeight: '500', color: Colors.text },
-  catPill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-  catPillText: { fontSize: 10, fontWeight: '500', color: Colors.textSecondary },
-  sectionCard: {
-    backgroundColor: '#ffffffb2', borderRadius: 24, padding: 16, paddingTop: 18, marginBottom: 20,
-    ...Shadow.medium,
-  },
+  catIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  catName: { ...Fonts.primary, ...Fonts.bold, fontSize: 14, color: Colors.text },
+  catSubtext: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+  catSpent: { ...Fonts.primary, ...Fonts.bold, fontSize: 15, color: Colors.text },
+  catLeft: { ...Fonts.primary, fontSize: 10, color: Colors.textMuted, marginTop: 2 },
+
+  sectionMinimal: { marginBottom: Spacing.xl },
   sectionHdr: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F3', marginBottom: 6,
+    flexDirection: 'row', alignItems: 'flex-end', paddingBottom: Spacing.smd,
+    borderBottomWidth: 1.5, borderBottomColor: Colors.text, marginBottom: 8,
   },
-  sectionLabel: { fontSize: 11, fontWeight: '600', color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: 1.5 },
-  groupDays: { fontSize: 11, color: Colors.textSecondary, marginTop: 1, fontWeight: '400' },
-  groupColLbl: { fontSize: 10, color: '#A1A1AA', fontWeight: '500', textTransform: 'uppercase' },
-  groupColVal: { fontSize: 14, fontWeight: '500', color: Colors.text, marginTop: 1 },
+  sectionLabel: { ...Fonts.primary, ...Fonts.black, fontSize: 17, color: Colors.text, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionStats: { alignItems: 'flex-end' },
+  groupDays: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary, marginTop: 4 },
+  groupColVal: { ...Fonts.primary, ...Fonts.black, fontSize: 17, color: Colors.text },
+  groupColLbl: { ...Fonts.primary, fontSize: 10, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionBody: { paddingTop: 4 },
+
   primaryBtn: {
-    backgroundColor: Colors.purple, borderRadius: 100,
-    paddingVertical: 16, paddingHorizontal: 32,
-    alignItems: 'center', justifyContent: 'center', flex: 1,
+    backgroundColor: Colors.accent, borderRadius: Radius.md,
+    paddingVertical: 16, paddingHorizontal: 24,
+    alignItems: 'center', justifyContent: 'center', minHeight: 52,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryBtnText: { color: Colors.white, ...Fonts.primary, ...Fonts.bold, fontSize: 15 },
+
   secondaryBtn: {
-    width: 52, height: 52, borderRadius: 100,
-    borderWidth: 1.5, borderColor: Colors.border,
+    width: 48, height: 48, borderRadius: 24,
+    borderWidth: 1.5, borderColor: Colors.borderStrong,
     backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
   },
-  secondaryBtnText: { fontSize: 18, color: Colors.purple, fontWeight: '700' },
-  toggleTrack: { width: 48, height: 28, borderRadius: 100, justifyContent: 'center' },
-  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', ...Shadow.card },
-  alertWrap: { backgroundColor: '#1A1050', borderRadius: 16, padding: 18, marginBottom: 12 },
-  alertLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, marginBottom: 10, textTransform: 'uppercase' },
-  alertItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 10, padding: 11, marginBottom: 6,
+  secondaryBtnText: { fontSize: 18, color: Colors.text, ...Fonts.bold },
+
+  toggleTrack: { width: 44, height: 24, borderRadius: 12, justifyContent: 'center' },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', ...Shadow.soft },
+
+  subMinimalCard: {
+    flexDirection: 'row', alignItems: 'center', padding: 16,
+    backgroundColor: Colors.white, borderRadius: Radius.lg, marginBottom: 10,
+    borderWidth: 1.2, borderColor: Colors.border, minHeight: 76,
   },
-  alertName: { fontSize: 13, fontWeight: '800', color: '#fff' },
-  alertDays: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
-  alertAmt: { fontSize: 17, fontWeight: '900', color: '#fff' },
-  trialContainer: {
-    marginBottom: 24,
-    paddingHorizontal: 2,
-  },
-  trialGlassCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F3FF', // Subtle Lavender tint for contrast
-    borderRadius: 24,
-    padding: 16,
-    paddingRight: 20,
-    borderWidth: 1,
-    borderColor: '#ffffff',
-    ...Shadow.medium,
-    overflow: 'hidden',
-  },
-  trialSideBar: {
-    width: 4,
-    height: '100%',
-    backgroundColor: Colors.purple,
-    borderRadius: 100,
-    position: 'absolute',
-    left: 12,
-  },
-  trialOverline: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#A1A1AA',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  trialMainText: {
-    fontSize: 14,
-    color: Colors.text,
-    lineHeight: 20,
-    fontWeight: '400',
-    marginBottom: 12,
-  },
-  trialCTA: {
-    backgroundColor: Colors.purple,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  trialCTAText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  trialHideBtn: {
-    paddingLeft: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  trialCheckCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.2,
-    borderColor: '#E4E4E7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trialCheckText: {
-    fontSize: 10,
-    color: '#A1A1AA',
-    fontWeight: '300',
-    marginTop: -1,
-  },
-  periodPill: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white,
-    borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 8,
-    borderRadius: 100, ...Shadow.card,
-  },
-  periodPillText: { fontSize: 14, fontWeight: '700', color: Colors.purple },
-  subCard: {
-    flexDirection: 'row', alignItems: 'center', padding: 15, paddingHorizontal: 16,
-    backgroundColor: Colors.white, borderRadius: 14, marginBottom: 8,
-    borderWidth: 1.5, borderColor: Colors.border, ...Shadow.card,
-  },
-  subIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  subName: { fontSize: 15, fontWeight: '800', color: Colors.text, letterSpacing: -0.2 },
-  subCycle: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', marginTop: 2 },
-  subPrice: { fontSize: 17, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
-  subBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 100, marginTop: 3 },
-  subBadgeText: { fontSize: 11, fontWeight: '800' },
+  subIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  subName: { ...Fonts.primary, ...Fonts.bold, fontSize: 15, color: Colors.text },
+  subMeta: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary, marginTop: 3 },
+  subPrice: { ...Fonts.primary, ...Fonts.bold, fontSize: 15, color: Colors.text },
+  subUrgency: { ...Fonts.primary, fontSize: 9, ...Fonts.black, color: Colors.textMuted, marginTop: 4 },
+
   settingsRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 15, paddingHorizontal: 16, backgroundColor: Colors.white,
-    borderRadius: 14, marginBottom: 6, borderWidth: 1.5, borderColor: Colors.border,
+    paddingHorizontal: 4, borderBottomColor: Colors.border,
   },
-  settingsTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
-  settingsValue: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  chevron: { fontSize: 20, color: Colors.textSecondary },
+  settingsTitle: { ...Fonts.primary, ...Fonts.medium, fontSize: 15, color: Colors.text },
+  settingsValue: { ...Fonts.primary, fontSize: 13, color: Colors.textSecondary },
+  chevron: { fontSize: 18, color: Colors.textMuted, marginLeft: 4 },
+
+  periodPill: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.accentMuted,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: Radius.pill, minHeight: Metrics.minTouch,
+  },
+  periodPillText: { ...Fonts.primary, ...Fonts.bold, fontSize: 13, color: Colors.accent },
+
+  trialBanner: {
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    ...Shadow.medium,
+  },
+  trialBannerCopy: { flex: 1 },
+  trialBannerText: {
+    ...Fonts.primary,
+    ...Fonts.black,
+    fontSize: 18,
+    color: Colors.text,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  trialBannerDaysPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  trialBannerDaysLabel: {
+    ...Fonts.primary,
+    fontSize: 10,
+    ...Fonts.bold,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  trialBannerSubtext: {
+    ...Fonts.primary,
+    fontSize: 10,
+    color: Colors.textSecondary,
+    lineHeight: 15,
+    marginBottom: 10,
+  },
+  trialBannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trialBannerCta: {
+    backgroundColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  trialBannerCtaText: {
+    ...Fonts.primary,
+    ...Fonts.bold,
+    fontSize: 10,
+    color: Colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  trialBannerClose: {
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 34,
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+  },
+  trialBannerCloseText: {
+    ...Fonts.primary,
+    ...Fonts.bold,
+    fontSize: 10,
+    color: Colors.textSecondary,
+  },
 });
