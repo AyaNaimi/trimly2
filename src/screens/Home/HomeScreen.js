@@ -15,6 +15,7 @@ import {
   CategorySection,
   PeriodPill,
   TrialBanner,
+  QuickStatsRow,
 } from '../../components';
 import { useApp } from '../../context/AppContext';
 import { Colors, Fonts, Metrics, Radius, Shadow, Spacing } from '../../theme';
@@ -66,7 +67,6 @@ export default function HomeScreen({ navigation }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [showTrial, setShowTrial] = useState(true);
   const [showInsight, setShowInsight] = useState(true);
-  const settingsPress = usePressScale();
   const addPress = usePressScale();
   const fabPress = usePressScale();
   const insightTranslate = useRef(new Animated.Value(0)).current;
@@ -126,18 +126,7 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.logoTitle}>TRIMLY</Text>
-        <View style={styles.headerActions}>
-          <PeriodPill label={getPeriodLabel(period)} onPress={togglePeriod} />
-          <Pressable
-            onPress={openCategoryPanel}
-            onPressIn={settingsPress.onPressIn}
-            onPressOut={settingsPress.onPressOut}
-          >
-            <Animated.View style={[styles.settingsBtn, { transform: [{ scale: settingsPress.scale }] }]}>
-              <Text style={styles.settingsIcon}>✎</Text>
-            </Animated.View>
-          </Pressable>
-        </View>
+        <PeriodPill label={getPeriodLabel(period)} onPress={togglePeriod} />
       </View>
 
       <ScrollView
@@ -184,6 +173,8 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
+        <QuickStatsRow categories={state.categories} state={state} />
+
         {weeklyCats.length > 0 && (
           <CategorySection
             label="Hebdo"
@@ -209,16 +200,6 @@ export default function HomeScreen({ navigation }) {
             ))}
           </CategorySection>
         )}
-
-        <Pressable
-          onPress={openCategoryPanel}
-          onPressIn={addPress.onPressIn}
-          onPressOut={addPress.onPressOut}
-        >
-          <Animated.View style={[styles.addBtn, { transform: [{ scale: addPress.scale }] }]}>
-            <Text style={styles.addBtnText}>+ Gerer les categories</Text>
-          </Animated.View>
-        </Pressable>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -310,19 +291,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
     paddingTop: Metrics.headerTop,
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logoTitle: { ...Fonts.primary, ...Fonts.black, fontSize: 22, color: Colors.text, letterSpacing: 1.5 },
-  settingsBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  settingsIcon: { fontSize: 16, color: Colors.text },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: Metrics.screenPadding, paddingBottom: Metrics.fabBottomElevated },
   insightBox: {
@@ -352,18 +321,6 @@ const styles = StyleSheet.create({
   balanceMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent },
   balanceStatus: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary },
-  addBtn: {
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Colors.borderStrong,
-    marginTop: Spacing.sm,
-    minHeight: 52,
-  },
-  addBtnText: { ...Fonts.primary, ...Fonts.bold, fontSize: 13, color: Colors.textSecondary },
   fab: {
     position: 'absolute',
     right: Metrics.screenPadding,

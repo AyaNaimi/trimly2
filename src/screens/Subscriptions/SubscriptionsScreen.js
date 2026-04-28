@@ -42,15 +42,18 @@ export default function SubscriptionsScreen() {
   const totalMonthly = activeSubscriptions.reduce((a, s) => a + monthlyEquivalent(s.amount, s.cycle), 0);
 
   const filters = [
-    { key: 'all', label: 'Projets' },
+    { key: 'all', label: 'Tous' },
     { key: 'active', label: 'Actifs' },
-    { key: 'cancelled', label: 'Archives' },
+    { key: 'cancelled', label: 'Resilies' },
   ];
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Analyses</Text>
+        <View>
+          <Text style={styles.title}>SUBSCRIPTIONS</Text>
+          <Text style={styles.subHeader}>{activeSubscriptions.length} actifs</Text>
+        </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Pressable
             style={styles.scanBtnHeader}
@@ -219,6 +222,7 @@ const styles = StyleSheet.create({
     paddingTop: Metrics.headerTop,
   },
   title: { ...Fonts.primary, ...Fonts.black, fontSize: 24, color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+  subHeader: { ...Fonts.primary, fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
   addBtn: { backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 10, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, minHeight: Metrics.minTouch },
   addBtnText: { color: Colors.textSecondary, ...Fonts.primary, ...Fonts.bold, fontSize: 11, textTransform: 'uppercase' },
   scroll: { flex: 1 },
