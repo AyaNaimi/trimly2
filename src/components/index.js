@@ -81,11 +81,14 @@ export function CategoryRow({ category, onPress, simple }) {
           <Text style={styles.catName}>{name}</Text>
           <Text style={styles.catSubtext}>Budget {budget}{state.currency}</Text>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={[styles.catSpent, isOver && { color: Colors.error }]}>
-            {spent.toFixed(0)} {state.currency}
-          </Text>
-          <Text style={styles.catLeft}>{left > 0 ? `Restant ${left.toFixed(0)}${state.currency}` : 'Depassement'}</Text>
+        <View style={{ alignItems: 'flex-end', gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.catSpent, isOver && { color: Colors.error }]}>
+              {spent.toFixed(0)} {state.currency}
+            </Text>
+            <Text style={styles.catLeft}>{left > 0 ? `Restant ${left.toFixed(0)}${state.currency}` : 'Depassement'}</Text>
+          </View>
+          <BudgetHealthBadge spent={spent} budget={budget} size="sm" />
         </View>
       </Animated.View>
     </Pressable>
@@ -212,6 +215,114 @@ export function PeriodPill({ label, onPress }) {
   );
 }
 
+export function BudgetHealthBadge({ spent, budget, size = 'sm' }) {
+  const percentage = (spent / budget) * 100;
+  let badgeColor = Colors.budgetHealthy;
+  let badgeText = '✓';
+  
+  if (percentage >= 100) {
+    badgeColor = Colors.budgetOver;
+    badgeText = '!';
+  } else if (percentage >= 80) {
+    badgeColor = Colors.budgetWarning;
+    badgeText = '⚠';
+  }
+
+  const sizeMap = {
+    sm: { width: 24, height: 24, fontSize: 12 },
+    md: { width: 32, height: 32, fontSize: 16 },
+    lg: { width: 40, height: 40, fontSize: 18 },
+  };
+
+  const dims = sizeMap[size];
+
+  return (
+    <View
+      style={{
+        width: dims.width,
+        height: dims.height,
+        borderRadius: dims.width / 2,
+        backgroundColor: badgeColor,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ fontSize: dims.fontSize, color: '#fff', ...Fonts.bold }}>
+        {badgeText}
+      </Text>
+    </View>
+  );
+}
+
+export function TrendIndicator({ trend }) {
+  const isPositive = trend > 0;
+  const isNeutral = trend === 0;
+  
+  let icon = '→';
+  let color = Colors.textMuted;
+
+  if (isPositive) {
+    icon = '↑';
+    color = Colors.budgetOver;
+  } else if (!isNeutral) {
+    icon = '↓';
+    color = Colors.budgetHealthy;
+  }
+
+  return (
+    <Text style={{ color, fontSize: 12, ...Fonts.bold }}>
+      {icon}
+    </Text>
+  );
+}
+
+export function StatCard({ label, value, currency, trend, style }) {
+  const { state } = useApp();
+  const currencySymbol = currency || state.currency;
+
+  return (
+    <View style={[styles.statCard, style]}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={styles.statValue}>
+          {value} {currencySymbol}
+        </Text>
+        {trend !== undefined && <TrendIndicator trend={trend} />}
+      </View>
+    </View>
+  );
+}
+
+export function QuickStatsRow({ categories, state }) {
+  const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
+  const totalBudget = categories.reduce((sum, cat) => sum + cat.budget, 0);
+  const remaining = totalBudget - totalSpent;
+
+  return (
+    <View style={styles.quickStatsRow}>
+      <StatCard
+        label="Dépensé"
+        value={totalSpent.toFixed(0)}
+        currency={state.currency}
+        style={{ flex: 1 }}
+      />
+      <StatCard
+        label="Budget"
+        value={totalBudget.toFixed(0)}
+        currency={state.currency}
+        style={{ flex: 1 }}
+      />
+      <StatCard
+        label="Restant"
+        value={remaining.toFixed(0)}
+        currency={state.currency}
+        trend={remaining > 0 ? -1 : 1}
+        style={{ flex: 1 }}
+      />
+    </View>
+  );
+}
+
 export function TrialBanner({ daysLeft, onSubscribe, onClose }) {
   const { scale, onPressIn, onPressOut } = usePressScale();
   const dayLabel = daysLeft > 1 ? 'jours' : 'jour';
@@ -255,6 +366,46 @@ export function TrialBanner({ daysLeft, onSubscribe, onClose }) {
 }
 
 const styles = StyleSheet.create({
+  // Budget Health Badge
+  budgetHealthBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Stat Card
+  statCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.smd,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: Spacing.sm,
+  },
+  statLabel: {
+    ...Fonts.primary,
+    fontSize: 11,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  statValue: {
+    ...Fonts.primary,
+    ...Fonts.bold,
+    fontSize: 16,
+    color: Colors.text,
+  },
+
+  // Quick Stats Row
+  quickStatsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginVertical: Spacing.md,
+  },
+
   pbTrack: { height: 6, backgroundColor: Colors.border, borderRadius: Radius.pill, overflow: 'hidden' },
   pbFill: { height: '100%', borderRadius: Radius.pill },
 

@@ -1,12 +1,14 @@
 // src/screens/Reports/ReportsScreen.js
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, Dimensions, Pressable } from 'react-native';
 import { Colors, Fonts, Radius, Spacing, Layout, Metrics } from '../../theme';
 import { useApp } from '../../context/AppContext';
 import { monthlyEquivalent } from '../../utils/dateUtils';
+import { PremiumHaptics } from '../../utils/haptics';
 
 export default function ReportsScreen() {
   const { state, activeSubscriptions } = useApp();
+  const [timeRange, setTimeRange] = useState('thisMonth');
 
   const totalSpent = state.categories.reduce((a, c) => a + c.spent, 0);
   const totalBudget = state.categories.reduce((a, c) => a + c.budget, 0);
@@ -26,11 +28,40 @@ export default function ReportsScreen() {
   const budgetPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
   const isOverBudget = totalSpent > totalBudget && totalBudget > 0;
 
+  const timeRanges = [
+    { key: 'thisMonth', label: 'Ce Mois' },
+    { key: 'last3Months', label: '3 Mois' },
+    { key: 'ytd', label: 'YTD' },
+  ];
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Analyses</Text>
-        <Text style={styles.subtitle}>Votre panorama financier intelligent</Text>
+        <View>
+          <Text style={styles.title}>Analyses</Text>
+          <Text style={styles.subtitle}>Votre panorama financier intelligent</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.timeRangeScroll}
+          contentContainerStyle={styles.timeRangeContent}
+        >
+          {timeRanges.map(range => (
+            <Pressable
+              key={range.key}
+              onPress={() => {
+                PremiumHaptics.selection();
+                setTimeRange(range.key);
+              }}
+              style={[styles.timeRangeBtn, timeRange === range.key && styles.timeRangeBtnActive]}
+            >
+              <Text style={[styles.timeRangeTxt, timeRange === range.key && styles.timeRangeTxtActive]}>
+                {range.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView 
@@ -182,6 +213,37 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary, 
     marginTop: 4,
     letterSpacing: 0.2
+  },
+  timeRangeScroll: {
+    marginTop: Spacing.md,
+    marginHorizontal: -Metrics.screenPadding,
+    paddingHorizontal: Metrics.screenPadding,
+  },
+  timeRangeContent: {
+    gap: Spacing.sm,
+  },
+  timeRangeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: Metrics.minTouch - 12,
+  },
+  timeRangeBtnActive: {
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
+  },
+  timeRangeTxt: {
+    ...Fonts.sans,
+    fontSize: 11,
+    color: Colors.textSecondary,
+    ...Fonts.bold,
+    textTransform: 'uppercase',
+  },
+  timeRangeTxtActive: {
+    color: Colors.bg,
   },
   scroll: { flex: 1 },
   scrollContent: { 

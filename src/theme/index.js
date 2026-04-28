@@ -23,6 +23,12 @@ export const Colors = {
   error: '#BE123C',   // Refined deep red
   warning: '#D97706',
   
+  // Budget Health System
+  budgetHealthy: '#10B981',      // Green - on track
+  budgetWarning: '#F59E0B',      // Amber - caution zone
+  budgetOver: '#EF4444',         // Red - over budget
+  budgetCritical: '#BE123C',     // Deep red - significantly over
+  
   // Structural
   border: '#F1F5F9',
   borderStrong: '#E2E8F0',
