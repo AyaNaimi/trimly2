@@ -60,7 +60,12 @@
       ]
     },
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/icon.png",
+      "shortName": "Trimly",
+      "name": "Trimly",
+      "display": "standalone",
+      "backgroundColor": "#0A0E27",
+      "themeColor": "#0A0E27"
     },
     "plugins": [
       [

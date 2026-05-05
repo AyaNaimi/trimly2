@@ -132,6 +132,9 @@ Fonts.serif = {
 };
 
 // ── Border Radius (Responsive) ──────────────────────────────
+const adaptiveDimensions = getAdaptiveDimensions();
+const deviceType = getDeviceType();
+
 export const Radius = {
   none: 0,
   xs:   deviceType === 'small' ? 4 : 6,
@@ -157,9 +160,6 @@ export const Spacing = {
 };
 
 // ── Metrics (Responsive) ────────────────────────────────────
-const adaptiveDimensions = getAdaptiveDimensions();
-const deviceType = getDeviceType();
-
 export const Metrics = {
   screenPadding:     adaptiveDimensions.screenPadding,
   sectionGap:        Spacing.lg,
