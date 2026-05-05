@@ -3,18 +3,22 @@ import {
   View, Text, Modal, Pressable, TextInput, StyleSheet,
   ScrollView, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { Colors, Fonts, Radius, Spacing } from '../../theme';
+import { Fonts, Radius, Spacing } from '../../theme';
 import { PremiumHaptics } from '../../utils/haptics';
 import { QUICK_SUBSCRIPTIONS, SUB_CATEGORIES } from '../../data/initialData';
 import { formatDateFull, todayISO, isLeapDaySubscription } from '../../utils/dateUtils';
 import DatePickerModal from '../../components/DatePickerModal';
 import { useApp } from '../../context/AppContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AddSubscriptionModal({ visible, onClose, onSave }) {
+  const { Colors } = useTheme();
   const { state } = useApp();
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📦');
-  const [color, setColor] = useState(Colors.accent);
+  const [color, setColor] = useState('');
   const [amount, setAmount] = useState('');
   const [cycle, setCycle] = useState('monthly');
   const [startDate, setStartDate] = useState(todayISO());
@@ -26,6 +30,13 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const searchAnim = useRef(new Animated.Value(0)).current;
+
+  // Initialize color with Colors.accent when it's available
+  useEffect(() => {
+    if (!color && Colors) {
+      setColor(Colors.accent);
+    }
+  }, [Colors, color]);
   const searchInputRef = useRef(null);
 
   useEffect(() => {
@@ -89,10 +100,10 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
   }
 
   const cycles = [
-    { key: 'weekly', label: 'Hebdo' },
-    { key: 'monthly', label: 'Mensuel' },
-    { key: 'quarterly', label: 'Trimestriel' },
-    { key: 'annual', label: 'Annuel' },
+    { key: 'weekly', label: t('subscriptions.cycles.weeklyFull') },
+    { key: 'monthly', label: t('subscriptions.cycles.monthlyFull') },
+    { key: 'quarterly', label: t('subscriptions.cycles.quarterlyFull') },
+    { key: 'annual', label: t('subscriptions.cycles.annualFull') },
   ];
 
   const filteredCategories = useMemo(() => {
@@ -130,6 +141,7 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
     setShowCategorySearch(prev => !prev);
   }
 
+  const styles = makeStyles(Colors);
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -138,14 +150,14 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
             <Pressable onPress={() => { PremiumHaptics.selection(); onClose(); }} style={styles.closeBtn}>
               <Text style={styles.closeTxt}>✕</Text>
             </Pressable>
-            <Text style={styles.title}>Abonnement</Text>
+            <Text style={styles.title}>{t('modals.addSubscription.title')}</Text>
             <Pressable onPress={save} style={styles.saveBtn}>
-              <Text style={styles.saveTxt}>Ajouter</Text>
+              <Text style={styles.saveTxt}>{t('common.add')}</Text>
             </Pressable>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-            <Text style={styles.sectionLabel}>Favoris</Text>
+            <Text style={styles.sectionLabel}>{t('modals.addSubscription.favorites')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll}>
               {QUICK_SUBSCRIPTIONS.slice(0, 10).map(qs => (
                 <Pressable
@@ -160,18 +172,18 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
             </ScrollView>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nom de l'offre</Text>
+              <Text style={styles.label}>{t('modals.addSubscription.offerName')}</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Ex. Netflix, Spotify..."
+                placeholder={t('modals.addSubscription.offerPlaceholder')}
                 placeholderTextColor={Colors.textSecondary}
               />
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Tarif mensuel</Text>
+              <Text style={styles.label}>{t('modals.addSubscription.monthlyPrice')}</Text>
               <View style={styles.amountWrap}>
                 <TextInput
                   style={[styles.input, styles.amountInput]}
@@ -185,7 +197,7 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
               </View>
             </View>
 
-            <Text style={styles.label}>Frequence</Text>
+            <Text style={styles.label}>{t('subscriptions.frequency')}</Text>
             <View style={styles.cycleRow}>
               {cycles.map(c => (
                 <Pressable
@@ -199,7 +211,7 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Date de debut</Text>
+              <Text style={styles.label}>{t('modals.addSubscription.startDate')}</Text>
               <Pressable
                 style={styles.dateButton}
                 onPress={() => {
@@ -215,13 +227,13 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
             {isLeapDaySubscription(startDate) && (
               <View style={styles.infoBox}>
                 <Text style={styles.infoBoxTxt}>
-                  Commence le 29 fev. Les annees non bissextiles, le prelevement sera le 28 fevrier.
+                  {t('modals.addSubscription.leapDayInfo')}
                 </Text>
               </View>
             )}
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Essai gratuit (jours)</Text>
+              <Text style={styles.label}>{t('modals.addSubscription.freeTrial')}</Text>
               <TextInput
                 style={styles.input}
                 value={trialDays}
@@ -234,7 +246,7 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
 
             <View style={styles.fieldGroup}>
               <View style={styles.categoryHeader}>
-                <Text style={styles.label}>Categorie</Text>
+                <Text style={styles.label}>{t('subscriptions.category')}</Text>
                 <View style={styles.categorySearchRow}>
                   <Animated.View
                     style={[
@@ -251,7 +263,7 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
                       style={styles.searchInput}
                       value={categoryQuery}
                       onChangeText={setCategoryQuery}
-                      placeholder="Rechercher"
+                      placeholder={t('transactions.searchCategories')}
                       placeholderTextColor={Colors.textSecondary}
                     />
                   </Animated.View>
@@ -299,13 +311,13 @@ export default function AddSubscriptionModal({ visible, onClose, onSave }) {
         value={startDate}
         onChange={setStartDate}
         onClose={() => setShowDatePicker(false)}
-        title="Date de debut"
+        title={t('modals.addSubscription.startDateTitle')}
       />
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -316,7 +328,7 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 4 },
   closeTxt: { fontSize: 18, color: Colors.textSecondary },
   saveBtn: { backgroundColor: Colors.text, paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radius.md },
-  saveTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.white },
+  saveTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.pureWhite },
 
   scroll: { padding: Spacing.xl },
   sectionLabel: {
@@ -351,7 +363,7 @@ const styles = StyleSheet.create({
   },
   cycleBtnActive: { backgroundColor: Colors.text, borderColor: Colors.text },
   cycleTxt: { ...Fonts.sans, fontSize: 12, ...Fonts.semiBold, color: Colors.textSecondary },
-  cycleTxtActive: { color: Colors.white },
+  cycleTxtActive: { color: Colors.pureWhite },
 
   infoBox: { backgroundColor: Colors.surface, borderRadius: Radius.md, padding: 12, marginBottom: 20 },
   infoBoxTxt: { ...Fonts.sans, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
@@ -413,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryCheckText: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.white },
+  categoryCheckText: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.pureWhite },
   categoryCardText: {
     ...Fonts.sans,
     fontSize: 10,
@@ -455,4 +467,4 @@ const styles = StyleSheet.create({
   },
   dateValue: { ...Fonts.sans, fontSize: 15, ...Fonts.semiBold, color: Colors.text },
   dateIcon: { fontSize: 16, color: Colors.textSecondary },
-});
+}); }

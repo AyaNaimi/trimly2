@@ -200,20 +200,192 @@ export const DatabaseService = {
     if (error) throw error;
   },
 
+  // Hybrid email discovery
+  async getEmailConnections(userId) {
+    const { data, error } = await supabase
+      .from('email_connections')
+      .select('*')
+      .eq('user_id', userId)
+      .order('connected_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async upsertEmailConnection(userId, connection) {
+    const payload = {
+      user_id: userId,
+      provider: connection.provider,
+      email: connection.email,
+      provider_user_id: connection.providerUserId || null,
+      access_token: connection.accessToken || null,
+      refresh_token: connection.refreshToken || null,
+      scopes: connection.scopes || [],
+      status: connection.status || 'connected',
+      last_error: connection.lastError || null,
+      last_scanned_at: connection.lastScannedAt || null,
+    };
+
+    const { data, error } = await supabase
+      .from('email_connections')
+      .upsert(payload, { onConflict: 'user_id,provider,email' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getScanHistory(userId) {
+    const { data, error } = await supabase
+      .from('scan_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createScanHistory(userId, scan) {
+    const payload = {
+      user_id: userId,
+      connection_id: scan.connectionId || null,
+      provider: scan.provider,
+      source_email: scan.sourceEmail || null,
+      status: scan.status || 'started',
+      emails_scanned: scan.emailsScanned || 0,
+      subscriptions_found: scan.subscriptionsFound || 0,
+      error_message: scan.errorMessage || null,
+      metadata: scan.metadata || {},
+    };
+
+    const { data, error } = await supabase
+      .from('scan_history')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateScanHistory(scanId, updates) {
+    const payload = {
+      status: updates.status,
+      emails_scanned: updates.emailsScanned,
+      subscriptions_found: updates.subscriptionsFound,
+      error_message: updates.errorMessage,
+      metadata: updates.metadata,
+    };
+
+    const { data, error } = await supabase
+      .from('scan_history')
+      .update(payload)
+      .eq('id', scanId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async getDetectedSubscriptions(userId) {
+    const { data, error } = await supabase
+      .from('detected_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(item => ({
+      ...item,
+      startDate: item.start_date,
+      trialDays: item.raw_payload?.trialDays || 0,
+      trialEndsAt: item.raw_payload?.trialEndsAt || null,
+      rawPayload: item.raw_payload,
+      importedSubscriptionId: item.imported_subscription_id,
+      sourceEmail: item.source_email,
+    }));
+  },
+
+  async replaceDetectedSubscriptions(userId, items, meta = {}) {
+    if (meta.provider || meta.sourceEmail) {
+      let query = supabase
+        .from('detected_subscriptions')
+        .delete()
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      if (meta.provider) query = query.eq('provider', meta.provider);
+      if (meta.sourceEmail) query = query.eq('source_email', meta.sourceEmail);
+
+      const { error: deleteError } = await query;
+      if (deleteError) throw deleteError;
+    }
+
+    if (!items.length) return [];
+
+    const payload = items.map(item => ({
+      user_id: userId,
+      scan_id: meta.scanId || null,
+      provider: item.provider || meta.provider || 'manual',
+      source_email: item.sourceEmail || meta.sourceEmail || null,
+      external_key: item.externalKey || `${(item.name || '').toLowerCase()}_${item.provider || meta.provider || 'manual'}`,
+      name: item.name,
+      icon: item.icon || null,
+      color: item.color || null,
+      amount: parseFloat(item.amount) || 0,
+      cycle: item.cycle || 'monthly',
+      category: item.category || 'Autre',
+      start_date: item.startDate || new Date().toISOString(),
+      confidence: item.confidence ?? null,
+      raw_payload: item.rawPayload || item,
+      status: item.status || 'pending',
+    }));
+
+    const { data, error } = await supabase
+      .from('detected_subscriptions')
+      .insert(payload)
+      .select();
+    if (error) throw error;
+
+    return (data || []).map(item => ({
+      ...item,
+      startDate: item.start_date,
+      trialDays: item.raw_payload?.trialDays || 0,
+      trialEndsAt: item.raw_payload?.trialEndsAt || null,
+      rawPayload: item.raw_payload,
+      importedSubscriptionId: item.imported_subscription_id,
+      sourceEmail: item.source_email,
+    }));
+  },
+
+  async markDetectedSubscriptionStatus(id, updates) {
+    const payload = {};
+    if (updates.status) payload.status = updates.status;
+    if (updates.importedSubscriptionId !== undefined) {
+      payload.imported_subscription_id = updates.importedSubscriptionId;
+    }
+
+    const { data, error } = await supabase
+      .from('detected_subscriptions')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    return {
+      ...data,
+      startDate: data.start_date,
+      trialDays: data.raw_payload?.trialDays || 0,
+      trialEndsAt: data.raw_payload?.trialEndsAt || null,
+      rawPayload: data.raw_payload,
+      importedSubscriptionId: data.imported_subscription_id,
+      sourceEmail: data.source_email,
+    };
+  },
+
   async seedDefaultCategories(userId) {
-    const defaultCategories = [
-      { name: 'Streaming', icon: '🎬', color: '#E50914' },
-      { name: 'Musique', icon: '🎵', color: '#1DB954' },
-      { name: 'Stockage', icon: '☁️', color: '#4285F4' },
-      { name: 'Productivité', icon: '📝', color: '#000000' },
-      { name: 'Santé & Sport', icon: '💪', color: '#22C55E' },
-      { name: 'Sécurité', icon: '🔒', color: '#4687FF' },
-      { name: 'IA', icon: '🤖', color: '#10A37F' },
-      { name: 'Shopping', icon: '📦', color: '#FF9900' },
-      { name: 'Autre', icon: '📦', color: '#6B7280' },
-    ];
+    const { DEFAULT_CATEGORIES } = require('../data/initialData');
     
-    const insertData = defaultCategories.map(cat => ({
+    const insertData = DEFAULT_CATEGORIES.map(cat => ({
       user_id: userId,
       name: cat.name,
       icon: cat.icon,
@@ -228,5 +400,31 @@ export const DatabaseService = {
       .select();
     if (error) throw error;
     return data;
+  },
+
+  // Reset all user data
+  async resetAllData(userId) {
+    // Delete in order: transactions, subscriptions, categories
+    const { error: txError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', userId);
+    if (txError) throw txError;
+
+    const { error: subError } = await supabase
+      .from('subscriptions')
+      .delete()
+      .eq('user_id', userId);
+    if (subError) throw subError;
+
+    const { error: catError } = await supabase
+      .from('categories')
+      .delete()
+      .eq('user_id', userId);
+    if (catError) throw catError;
+
+    // Optionally delete detected subscriptions and scan history
+    await supabase.from('detected_subscriptions').delete().eq('user_id', userId);
+    await supabase.from('scan_history').delete().eq('user_id', userId);
   }
 };

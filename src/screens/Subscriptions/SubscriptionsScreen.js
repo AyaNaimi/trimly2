@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { PremiumHaptics } from '../../utils/haptics';
-import { Colors, Shadow, Fonts, Radius, Spacing, Metrics } from '../../theme';
+import { Shadow, Fonts, Radius, Spacing, Metrics } from '../../theme';
 import { SubCard } from '../../components';
 import { useApp } from '../../context/AppContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getNextBilling, generate12MonthProjection, monthlyEquivalent } from '../../utils/dateUtils';
 import AddSubscriptionModal from './AddSubscriptionModal';
 import SubDetailModal from './SubDetailModal';
@@ -21,6 +23,8 @@ export default function SubscriptionsScreen() {
     addSubscription,
     cancelSubscription
   } = useApp();
+  const { Colors } = useTheme();
+  const { t } = useLanguage();
 
   const [filter, setFilter] = useState('all');
   const [showAdd, setShowAdd] = useState(false);
@@ -28,6 +32,7 @@ export default function SubscriptionsScreen() {
   const [selectedSub, setSelectedSub] = useState(null);
 
   const allSubs = state.subscriptions;
+  const existingSubscriptionNames = (allSubs || []).map(sub => sub?.name).filter(Boolean);
 
   const filtered = (allSubs || []).filter(s => {
     if (!s) return false;
@@ -42,34 +47,28 @@ export default function SubscriptionsScreen() {
   const totalMonthly = activeSubscriptions.reduce((a, s) => a + monthlyEquivalent(s.amount, s.cycle), 0);
 
   const filters = [
-    { key: 'all', label: 'Projets' },
-    { key: 'active', label: 'Actifs' },
-    { key: 'cancelled', label: 'Archives' },
+    { key: 'all', label: t('subscriptions.filters.all') },
+    { key: 'active', label: t('subscriptions.filters.active') },
+    { key: 'cancelled', label: t('subscriptions.filters.cancelled') },
   ];
+
+  const styles = makeStyles(Colors);
 
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>Analyses</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable
-            style={styles.scanBtnHeader}
-            onPress={() => { PremiumHaptics.click(); setShowScanner(true); }}
-          >
-            <Text style={styles.scanBtnTextHeader}>Scan</Text>
-          </Pressable>
-          <Pressable
-            style={styles.addBtn}
-            onPress={() => setShowAdd(true)}
-          >
-            <Text style={styles.addBtnText}>Nouveau</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.title}>{t('subscriptions.plans')}</Text>
+        <Pressable
+          style={styles.scanBtnHeader}
+          onPress={() => { PremiumHaptics.click(); setShowScanner(true); }}
+        >
+          <Text style={styles.scanBtnTextHeader}>{t('subscriptions.scan')}</Text>
+        </Pressable>
       </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.projectionCard}>
-          <Text style={styles.projectionLabel}>Impact 12 Mois</Text>
+          <Text style={styles.projectionLabel}>{t('subscriptions.impact12Months')}</Text>
           <Text style={styles.projectionAmt}>{total12.toLocaleString()} {state.currency}</Text>
 
           <View style={styles.chartWrap}>
@@ -87,11 +86,11 @@ export default function SubscriptionsScreen() {
 
           <View style={styles.statsGrid}>
             <View>
-              <Text style={styles.statLbl}>Mensuel</Text>
+              <Text style={styles.statLbl}>{t('subscriptions.monthlyTotal')}</Text>
               <Text style={styles.statVal}>{totalMonthly.toFixed(0)} {state.currency}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.statLbl}>Actifs</Text>
+              <Text style={styles.statLbl}>{t('subscriptions.activeCount')}</Text>
               <Text style={styles.statVal}>{activeSubscriptions.length}</Text>
             </View>
           </View>
@@ -123,12 +122,12 @@ export default function SubscriptionsScreen() {
                   useNativeControls={false}
                 />
               </View>
-              <Text style={styles.emptyTxt}>Pour commencer, ajoutez un abonnement ou scannez vos emails pour trouver vos plans.</Text>
+              <Text style={styles.emptyTxt}>{t('subscriptions.empty.message')}</Text>
               <Pressable 
                 style={styles.emptyScanBtn}
                 onPress={() => setShowScanner(true)}
               >
-                <Text style={styles.emptyScanBtnTxt}>Scanner mes emails</Text>
+                <Text style={styles.emptyScanBtnTxt}>{t('subscriptions.empty.scanButton')}</Text>
               </Pressable>
             </View>
           ) : (
@@ -163,7 +162,7 @@ export default function SubscriptionsScreen() {
             setShowAdd(false);
             PremiumHaptics.success();
           } else {
-            Alert.alert('Erreur', 'Impossible de synchroniser l abonnement.');
+            Alert.alert(t('common.error'), t('subscriptions.errors.syncError'));
           }
         }}
       />
@@ -175,12 +174,12 @@ export default function SubscriptionsScreen() {
           onClose={() => setSelectedSub(null)}
           onCancel={() => {
             Alert.alert(
-              'Resilier ?',
-              `Desactiver ${selectedSub.name} ?`,
+              t('subscriptions.cancel.title'),
+              t('subscriptions.cancel.message', { name: selectedSub.name }),
               [
-                { text: 'Annuler', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Desactiver', style: 'destructive',
+                  text: t('subscriptions.cancel.confirm'), style: 'destructive',
                   onPress: async () => {
                     const ok = await cancelSubscription(selectedSub.id);
                     if (ok) {
@@ -194,7 +193,7 @@ export default function SubscriptionsScreen() {
           }}
           onGenerateLetter={() => {
             PremiumHaptics.click();
-            Alert.alert('Succes', 'Lettre preparee.');
+            Alert.alert(t('common.success'), t('subscriptions.success.letterPrepared'));
           }}
         />
       )}
@@ -202,6 +201,8 @@ export default function SubscriptionsScreen() {
       <EmailScannerModal
         visible={showScanner}
         onClose={() => setShowScanner(false)}
+        initialEmail={state.session?.user?.email || ''}
+        existingSubscriptionNames={existingSubscriptionNames}
         onImport={async (sub) => {
           return await addSubscription(sub);
         }}
@@ -210,7 +211,7 @@ export default function SubscriptionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -218,34 +219,102 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
     paddingTop: Metrics.headerTop,
   },
-  title: { ...Fonts.primary, ...Fonts.black, fontSize: 24, color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+  title: { 
+    ...Fonts.primary, 
+    ...Fonts.black, 
+    fontSize: 22, 
+    color: Colors.text, 
+    textTransform: 'uppercase', 
+    letterSpacing: 1.5 
+  },
   addBtn: { backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 10, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.border, minHeight: Metrics.minTouch },
   addBtnText: { color: Colors.textSecondary, ...Fonts.primary, ...Fonts.bold, fontSize: 11, textTransform: 'uppercase' },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: Metrics.screenPadding, paddingBottom: Metrics.fabBottomElevated },
 
   projectionCard: {
-    backgroundColor: Colors.surface, borderRadius: Radius.md,
-    padding: Spacing.mdLg, marginBottom: Spacing.xl, marginTop: Spacing.sm, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, 
+    borderRadius: Radius.xl,
+    padding: Spacing.lg, 
+    marginBottom: Spacing.lg, 
+    marginTop: Spacing.sm, 
+    borderWidth: 1, 
+    borderColor: Colors.borderStrong,
+    ...Shadow.soft,
   },
-  projectionLabel: { ...Fonts.primary, fontSize: 11, ...Fonts.black, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
-  projectionAmt: { ...Fonts.primary, ...Fonts.black, fontSize: 36, color: Colors.text, marginTop: 4 },
-  chartWrap: { flexDirection: 'row', alignItems: 'flex-end', height: 80, marginVertical: 24, gap: 4 },
+  projectionLabel: { 
+    ...Fonts.primary, 
+    fontSize: 10, 
+    ...Fonts.bold, 
+    color: Colors.textMuted, 
+    textTransform: 'uppercase', 
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  projectionAmt: { 
+    ...Fonts.primary, 
+    ...Fonts.black, 
+    fontSize: 32, 
+    color: Colors.text, 
+    marginTop: 2,
+    letterSpacing: -0.5,
+  },
+  chartWrap: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-end', 
+    height: 70, 
+    marginVertical: Spacing.md, 
+    gap: 3,
+  },
   chartCol: { flex: 1, alignItems: 'center' },
   bar: { width: '80%', borderRadius: Radius.pill },
   barLbl: { ...Fonts.primary, fontSize: 8, color: Colors.textMuted, marginTop: 6, textTransform: 'uppercase' },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  statLbl: { ...Fonts.primary, fontSize: 10, color: Colors.textMuted, textTransform: 'uppercase' },
-  statVal: { ...Fonts.primary, ...Fonts.bold, fontSize: 16, color: Colors.text, marginTop: 2 },
+  statsGrid: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    paddingTop: Spacing.md, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.border,
+  },
+  statLbl: { 
+    ...Fonts.primary, 
+    fontSize: 9, 
+    color: Colors.textMuted, 
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  statVal: { 
+    ...Fonts.primary, 
+    ...Fonts.bold, 
+    fontSize: 18, 
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
 
   filterWrap: { gap: 8, marginBottom: Spacing.lg, paddingBottom: 4 },
   filterBtn: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, minHeight: Metrics.minTouch,
-    backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: Radius.pill, 
+    minHeight: 36,
+    backgroundColor: Colors.surface, 
+    borderWidth: 1, 
+    borderColor: Colors.borderStrong,
   },
-  filterBtnActive: { backgroundColor: Colors.text, borderColor: Colors.text },
-  filterTxt: { ...Fonts.primary, fontSize: 12, ...Fonts.bold, color: Colors.textSecondary },
-  filterTxtActive: { color: Colors.bg },
+  filterBtnActive: { 
+    backgroundColor: Colors.accent, 
+    borderColor: Colors.accent,
+  },
+  filterTxt: { 
+    ...Fonts.primary, 
+    fontSize: 12, 
+    ...Fonts.semiBold, 
+    color: Colors.textSecondary,
+  },
+  filterTxtActive: { 
+    color: '#FFFFFF',
+  },
 
   emptyState: { alignItems: 'center', paddingTop: 28, paddingBottom: 8 },
   emptyIllustration: {
@@ -258,12 +327,23 @@ const styles = StyleSheet.create({
   emptyVideo: { width: 164, height: 200, borderRadius: 42 },
   emptyTxt: { ...Fonts.primary, fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: 0, maxWidth: 260, lineHeight: 18 },
   fab: {
-    position: 'absolute', right: Metrics.screenPadding, bottom: Metrics.fabBottom,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', 
+    right: Metrics.screenPadding, 
+    bottom: Metrics.fabBottom,
+    width: 56, 
+    height: 56, 
+    borderRadius: 28,
+    backgroundColor: Colors.accent, 
+    alignItems: 'center', 
+    justifyContent: 'center',
     ...Shadow.medium,
   },
-  fabText: { color: Colors.white, fontSize: 32, fontWeight: '300', marginTop: -2 },
+  fabText: { 
+    color: '#FFFFFF', 
+    fontSize: 28, 
+    fontWeight: '300', 
+    marginTop: -2,
+  },
   
   scanBtnHeader: { 
     backgroundColor: Colors.bg, paddingHorizontal: 12, paddingVertical: 10, 
@@ -278,4 +358,4 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   emptyScanBtnTxt: { ...Fonts.primary, fontSize: 12, ...Fonts.bold, color: Colors.text },
-});
+}); }

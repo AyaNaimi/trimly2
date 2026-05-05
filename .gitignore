@@ -1,3 +1,6 @@
 # dependencies
 node_modules/
 .env
+.expo-export-check/
+*.log
+node_modules.tar

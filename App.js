@@ -7,12 +7,16 @@ import { StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
 import { AppProvider } from './src/context/AppContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import SyncLoader from './src/components/SyncLoader';
 
 function MainApp() {
+  const { isDark } = useTheme();
   return (
     <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <AppNavigator />
       <SyncLoader />
     </>
@@ -23,6 +27,8 @@ function MainApp() {
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -43,10 +49,13 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AppProvider>
-          <StatusBar style="dark" />
-          <MainApp />
-        </AppProvider>
+        <LanguageProvider>
+          <ThemeProvider>
+            <AppProvider>
+              <MainApp />
+            </AppProvider>
+          </ThemeProvider>
+        </LanguageProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

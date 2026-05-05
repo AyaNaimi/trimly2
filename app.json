@@ -5,13 +5,14 @@
     "scheme": "trimly",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#5B3BF5"
+      "backgroundColor": "#0A0E27"
     },
+    "backgroundColor": "#0A0E27",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.trimly.app",
@@ -19,18 +20,43 @@
         "UIBackgroundModes": [
           "fetch",
           "remote-notification"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.572874464830-be4rip5fsce1ku3nrep481uhvmuja0to"
+            ]
+          }
         ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#5B3BF5"
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#0A0E27"
       },
       "package": "com.trimly.app",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "trimly"
+            },
+            {
+              "scheme": "com.googleusercontent.apps.572874464830-be4rip5fsce1ku3nrep481uhvmuja0to"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -45,8 +71,8 @@
           "sounds": []
         }
       ],
-      "expo-video",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization"
     ],
     "extra": {
       "eas": {

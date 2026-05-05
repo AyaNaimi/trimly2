@@ -1,53 +1,36 @@
-# Email Scanner - Backend
+# scan-emails
 
-## Déploiement
+Fonction Edge qui :
 
-### 1. Variables d'environnement Supabase
+- verifie la session Supabase de l'utilisateur
+- reutilise le `provider_token` Google ou un `refresh_token`
+- lit Gmail via `gmail.readonly`
+- retourne une liste d'abonnements detectes
 
-Ajoutez ces variables dans votre dashboard Supabase > Edge Functions > Secrets:
+## Secrets requis
 
-```
-GROQ_API_KEY=votre_cle_groq
-GMAIL_CLIENT_ID=votre_client_id_google
-GMAIL_CLIENT_SECRET=votre_client_secret_google
-OUTLOOK_CLIENT_ID=votre_client_id_microsoft
-OUTLOOK_CLIENT_SECRET=votre_client_secret_microsoft
-```
-
-### 2. Déployer la fonction
-
-```bash
-supabase functions deploy scan-emails
+```txt
+GMAIL_CLIENT_ID=<google-client-id>
+GMAIL_CLIENT_SECRET=<google-client-secret>
+GROQ_API_KEY=<optionnel>
 ```
 
-### 3. Configurer OAuth (Gmail)
-
-1. Allez sur https://console.cloud.google.com/
-2. Créez un projet ou sélectionnez un existant
-3. Activez Gmail API
-4. Créez des identifiants OAuth 2.0
-5. Ajoutez l'URI de redirection: `https://your-project.supabase.co/functions/v1/callback`
-
-### 4. Configurer OAuth (Outlook)
-
-1. Allez sur https://portal.azure.com/
-2. Enregistrez une application
-3. Ajoutez les permissions API: `Mail.Read`
-4. Ajoutez l'URI de redirection: `https://your-project.supabase.co/functions/v1/callback`
-
-## Endpoints
-
-### POST /functions/v1/scan-emails
+## Requete attendue
 
 ```json
 {
   "email": "user@gmail.com",
-  "accessToken": "ya29.xxx",
-  "provider": "gmail"
+  "provider": "gmail",
+  "providerAccessToken": "ya29....",
+  "providerRefreshToken": "1//....",
+  "sessionAccessToken": "<supabase-user-session-token>"
 }
 ```
 
-Réponse:
+L'appel mobile peut utiliser la cle `anon` dans les headers et transmettre la vraie session utilisateur dans `sessionAccessToken`.
+
+## Reponse
+
 ```json
 {
   "subscriptions": [
@@ -58,6 +41,14 @@ Réponse:
       "category": "Streaming"
     }
   ],
-  "emailCount": 50
+  "emailCount": 12,
+  "connection": {
+    "email": "user@gmail.com",
+    "providerUserId": "uuid",
+    "accessToken": "ya29....",
+    "refreshToken": "1//....",
+    "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+    "source": "google-provider-token"
+  }
 }
 ```

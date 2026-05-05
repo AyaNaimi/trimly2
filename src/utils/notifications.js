@@ -8,6 +8,8 @@ import { getNextBilling, getNotificationMessage } from './dateUtils';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -82,7 +84,11 @@ export async function scheduleAllSubscriptionNotifications(subscriptions) {
             data: { subscriptionId: sub.id, type: 'upcoming' },
             categoryIdentifier: 'subscriptions',
           },
-          trigger: { date: triggerDate, channelId: 'subscriptions' },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+            channelId: 'subscriptions',
+          },
           identifier: `sub-${sub.id}-2days`,
         });
       }
@@ -103,7 +109,11 @@ export async function scheduleAllSubscriptionNotifications(subscriptions) {
             data: { subscriptionId: sub.id, type: 'tomorrow' },
             categoryIdentifier: 'subscriptions',
           },
-          trigger: { date: triggerDate, channelId: 'subscriptions' },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+            channelId: 'subscriptions',
+          },
           identifier: `sub-${sub.id}-1day`,
         });
       }
@@ -122,7 +132,11 @@ export async function scheduleAllSubscriptionNotifications(subscriptions) {
             data: { subscriptionId: sub.id, type: 'today' },
             categoryIdentifier: 'subscriptions',
           },
-          trigger: { date: triggerDate, channelId: 'subscriptions' },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+            channelId: 'subscriptions',
+          },
           identifier: `sub-${sub.id}-today`,
         });
       }
@@ -141,7 +155,11 @@ export async function scheduleAllSubscriptionNotifications(subscriptions) {
             body: `Essai gratuit: plus que 3 jours. Ensuite ${sub.amount.toFixed(2)} EUR par ${cycleFr(sub.cycle)}.`,
             data: { subscriptionId: sub.id, type: 'trial-ending' },
           },
-          trigger: { date: triggerDate, channelId: 'subscriptions' },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+            channelId: 'subscriptions',
+          },
           identifier: `sub-${sub.id}-trial`,
         });
       }
@@ -189,9 +207,9 @@ export async function scheduleDailyReminders(level) {
         data: { type: 'reminder' },
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
         minute,
-        repeats: true,
         channelId: 'reminders',
       },
       identifier: `reminder-${hour}-${minute}`,

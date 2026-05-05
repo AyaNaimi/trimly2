@@ -9,11 +9,22 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Colors, Fonts, Radius, Shadow, Spacing } from '../../theme';
+import { Fonts, Radius, Shadow, Spacing } from '../../theme';
 import { daysLeftInPeriod, formatDateFull, formatMonthYear } from '../../utils/dateUtils';
 import { PremiumHaptics } from '../../utils/haptics';
+import { useTheme } from '../../context/ThemeContext';
 import AddCategoryModal from './AddCategoryModal';
 import AddTransactionModal from './AddTransactionModal';
+
+const addAlpha = (hex, opacity) => {
+  if (!hex) return 'transparent';
+  let normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map(c => c + c).join('');
+  }
+  const op = Math.round(opacity * 255).toString(16).padStart(2, '0');
+  return `#${normalized}${op}`;
+};
 
 function formatMoney(amount, currency) {
   return `${Number(amount || 0).toFixed(2)} ${currency || '€'}`;
@@ -30,6 +41,7 @@ export default function CategoryDetailModal({
   onDeleteCategory,
   onAddTransaction,
 }) {
+  const { Colors } = useTheme();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
 
@@ -45,13 +57,14 @@ export default function CategoryDetailModal({
   const leftAmount = (category.budget || 0) - (category.spent || 0);
   const periodLabel = category.cycle === 'weekly' ? 'This week' : formatMonthYear(new Date());
 
+  const styles = makeStyles(Colors);
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>
             <View style={styles.titleRow}>
-              <View style={[styles.iconBadge, { backgroundColor: category.color || Colors.accent }]}>
+              <View style={[styles.iconBadge, { backgroundColor: addAlpha(category.color || Colors.accent, 0.15) }]}>
                 <Text style={styles.iconBadgeText}>{category.icon || '•'}</Text>
               </View>
               <Text style={styles.title}>{category.name}</Text>
@@ -149,7 +162,7 @@ export default function CategoryDetailModal({
           visible={showAddTransaction}
           onClose={() => setShowAddTransaction(false)}
           categories={categories}
-          initial_category_id={category.id}
+          initialCategoryId={category.id}
           onSave={(tx) => {
             onAddTransaction(tx);
             setShowAddTransaction(false);
@@ -160,13 +173,13 @@ export default function CategoryDetailModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
+function makeStyles(Colors) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bg },
   headerCard: {
     marginHorizontal: 10,
     marginTop: 10,
     borderRadius: 24,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 14,
     ...Shadow.soft,
@@ -187,17 +200,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   iconBadgeText: { fontSize: 14 },
-  title: { ...Fonts.sans, fontSize: 19, ...Fonts.bold, color: '#111111' },
+  title: { ...Fonts.sans, fontSize: 19, ...Fonts.bold, color: Colors.text },
   topActions: { flexDirection: 'row', gap: 10 },
   actionCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionCircleText: { fontSize: 14, color: '#666666' },
+  actionCircleText: { fontSize: 14, color: Colors.textSecondary },
   headerBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -209,19 +222,21 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: '#ECECEC',
+    borderColor: Colors.borderStrong,
   },
-  periodTitle: { ...Fonts.sans, fontSize: 16, ...Fonts.bold, color: '#111111' },
-  periodSub: { ...Fonts.sans, fontSize: 13, color: '#8B8B8B', marginTop: 2 },
+  periodTitle: { ...Fonts.sans, fontSize: 16, ...Fonts.bold, color: Colors.text },
+  periodSub: { ...Fonts.sans, fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   valuesBlock: { alignItems: 'flex-end' },
-  valueLine: { ...Fonts.sans, fontSize: 14, color: '#8B8B8B', marginBottom: 4 },
-  valueStrong: { ...Fonts.sans, fontSize: 18, ...Fonts.bold, color: '#111111' },
+  valueLine: { ...Fonts.sans, fontSize: 14, color: Colors.textSecondary, marginBottom: 4 },
+  valueStrong: { ...Fonts.sans, fontSize: 18, ...Fonts.bold, color: Colors.text },
   scroll: { flexGrow: 1, paddingHorizontal: 12, paddingTop: 20 },
   transactionsCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   transactionRow: {
     flexDirection: 'row',
@@ -229,12 +244,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F1F1',
+    borderBottomColor: Colors.border,
   },
   transactionInfo: { flex: 1, paddingRight: 10 },
-  transactionName: { ...Fonts.sans, fontSize: 15, ...Fonts.medium, color: '#111111' },
-  transactionDate: { ...Fonts.sans, fontSize: 12, color: '#8B8B8B', marginTop: 4 },
-  transactionAmount: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: '#111111' },
+  transactionName: { ...Fonts.sans, fontSize: 15, ...Fonts.medium, color: Colors.text },
+  transactionDate: { ...Fonts.sans, fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
+  transactionAmount: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: Colors.text },
   emptyState: {
     flex: 1,
     minHeight: 420,
@@ -242,7 +257,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyIllustration: { fontSize: 56, marginBottom: 14 },
-  emptyText: { ...Fonts.sans, fontSize: 18, color: '#333333' },
+  emptyText: { ...Fonts.sans, fontSize: 18, color: Colors.textSecondary },
   fab: {
     position: 'absolute',
     right: 22,
@@ -250,10 +265,10 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.medium,
   },
-  fabText: { color: Colors.white, fontSize: 32, fontWeight: '300', marginTop: -2 },
-});
+  fabText: { color: Colors.pureWhite, fontSize: 32, fontWeight: '300', marginTop: -2 },
+}); }

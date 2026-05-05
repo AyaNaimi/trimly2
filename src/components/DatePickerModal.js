@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal, View, Text, Pressable, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Colors, Fonts, Radius, Shadow, Spacing } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { Fonts, Radius, Shadow, Spacing } from '../theme';
 import {
   addDays, daysInMonth, formatDateFull, formatMonthYear, todayISO,
 } from '../utils/dateUtils';
@@ -21,6 +22,7 @@ export default function DatePickerModal({
   onChange,
   title = 'Choisir une date',
 }) {
+  const { Colors } = useTheme();
   const today = todayISO();
   const initialDate = value || today;
   const [cursor, setCursor] = useState(new Date(initialDate));
@@ -66,6 +68,7 @@ export default function DatePickerModal({
     onClose();
   }
 
+  const styles = makeStyles(Colors);
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -152,7 +155,7 @@ export default function DatePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -212,7 +215,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    backgroundColor: Colors.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -220,7 +223,7 @@ const styles = StyleSheet.create({
     ...Fonts.sans,
     fontSize: 17,
     ...Fonts.bold,
-    color: '#16A34A',
+    color: Colors.success,
   },
   shortcuts: {
     flexDirection: 'row',
@@ -323,4 +326,4 @@ const styles = StyleSheet.create({
     color: Colors.white,
     ...Fonts.bold,
   },
-});
+}); }

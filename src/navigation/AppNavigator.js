@@ -1,5 +1,5 @@
 // src/navigation/AppNavigator.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,28 +13,34 @@ import SubscriptionsScreen from '../screens/Subscriptions/SubscriptionsScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
+import AnimatedSplashScreen from '../screens/Splash/AnimatedSplashScreen';
+import EmailScannerModal from '../screens/Subscriptions/EmailScannerModal';
 
 import { useApp } from '../context/AppContext';
-import { Colors, Shadow, Fonts, Radius, Spacing } from '../theme';
-import { getNextBilling } from '../utils/dateUtils';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import { Shadow, Fonts, Radius } from '../theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
-
 import { PremiumHaptics } from '../utils/haptics';
 
 // Custom tab bar - Premium Floating Glass
 function LunaTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
-  const { activeSubscriptions } = useApp();
+  const { Colors, isDark } = useTheme();
+  const { t } = useLanguage();
 
-  const urgentCount = activeSubscriptions.filter(s => {
-    const b = getNextBilling(s);
-    return !b.isTrial && b.daysUntilCharge <= 2;
-  }).length;
+  const tabBarBg = isDark ? Colors.surface : '#1E293B';
+  const activeCapBg = isDark ? Colors.surfaceAlt : Colors.white;
+  const activeTextColor = isDark ? Colors.text : '#0F172A';
+  const inactiveIconColor = isDark ? Colors.textSecondary : Colors.white;
 
   return (
-    <View style={[styles.tabBar, { bottom: Math.max(insets.bottom, 16) }]}>
+    <View style={[
+      styles.tabBar,
+      { bottom: Math.max(insets.bottom, 16), backgroundColor: tabBarBg },
+    ]}>
       {state.routes.map((route, index) => {
         const focused = state.index === index;
         const handlePress = () => {
@@ -42,8 +48,14 @@ function LunaTabBar({ state, navigation }) {
           navigation.navigate(route.name);
         };
 
-        const labels = ['Bord', 'Flux', 'Journal', 'Plans', 'Profil'];
-        const iconColor = focused ? Colors.text : Colors.white;
+        const labels = [
+          t('navigation.home'),
+          t('navigation.reports'),
+          t('navigation.transactions'),
+          t('navigation.subscriptions'),
+          t('navigation.settings')
+        ];
+        const iconColor = focused ? activeTextColor : inactiveIconColor;
 
         return (
           <Pressable
@@ -52,9 +64,9 @@ function LunaTabBar({ state, navigation }) {
             style={[styles.tabBtn, focused && styles.tabBtnActive]}
           >
             {focused && (
-              <View style={styles.activeCapsule}>
+              <View style={[styles.activeCapsule, { backgroundColor: activeCapBg }]}>
                 <TabIcon name={route.name} focused={focused} color={iconColor} />
-                <Text style={styles.tabLabelActive}>{labels[index]}</Text>
+                <Text style={[styles.tabLabelActive, { color: activeTextColor }]}>{labels[index]}</Text>
               </View>
             )}
             {!focused && <TabIcon name={route.name} focused={focused} color={iconColor} />}
@@ -65,8 +77,7 @@ function LunaTabBar({ state, navigation }) {
   );
 }
 
-function TabIcon({ name, focused, color: customColor }) {
-  const color = customColor || (focused ? Colors.text : Colors.white);
+function TabIcon({ name, focused, color }) {
   const size = 18; // Smaller icons to match the image
 
   const icons = {
@@ -146,19 +157,31 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { state } = useApp();
+  const { state, addSubscription, dismissAuthEmailScanPrompt } = useApp();
+  const existingSubscriptionNames = (state.subscriptions || []).map((item) => item?.name).filter(Boolean);
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Le splash screen se cache automatiquement après l'animation
+    // Pas besoin de timer ici car AnimatedSplashScreen gère ça
+  }, []);
 
   if (!state.loaded) return null;
 
+  // Afficher le splash screen au premier chargement
+  if (showSplash) {
+    return <AnimatedSplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ 
-        headerShown: false, 
+      <Stack.Navigator screenOptions={{
+        headerShown: false,
         animationEnabled: true,
         animationTypeForReplace: 'push',
         gestureEnabled: true,
       }}>
-        {!state.session ? (
+        {(!state.session && !state.guestMode) ? (
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : !state.onboardingComplete ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -166,6 +189,14 @@ export default function AppNavigator() {
           <Stack.Screen name="Main" component={MainTabs} />
         )}
       </Stack.Navigator>
+      <EmailScannerModal
+        visible={!!state.emailScanPrompt}
+        onClose={dismissAuthEmailScanPrompt}
+        onImport={async (sub) => addSubscription(sub)}
+        initialEmail={state.emailScanPrompt?.email || state.session?.user?.email || ''}
+        autoPrompt
+        existingSubscriptionNames={existingSubscriptionNames}
+      />
     </NavigationContainer>
   );
 }
@@ -178,10 +209,8 @@ const styles = StyleSheet.create({
     bottom: Platform.select({ ios: 34, android: 24 }),
     borderRadius: 32,
     ...Shadow.premium,
-    backgroundColor: Colors.white,
-    borderWidth: 0,
-    backgroundColor: Colors.text, // Darker Slate / Black from the image
-    height: 72,
+    // backgroundColor set dynamically in LunaTabBar
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -194,41 +223,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabBtnActive: {
-    flex: 2.2, // Give space for the capsule
+    flex: 2.2,
   },
   activeCapsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9', // Subtle light gray for contrast
+    // backgroundColor set dynamically in LunaTabBar
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: Radius.pill,
     gap: 8,
   },
   tabLabelActive: {
     ...Fonts.sans,
+    ...Fonts.semiBold,
     fontSize: 12,
-    color: Colors.text,
-    ...Fonts.bold,
-  },
-  tabBadge: {
-    position: 'absolute',
-    top: 10,
-    right: '25%',
-    backgroundColor: Colors.accent,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
-  tabBadgeText: {
-    color: Colors.white,
-    fontSize: 8,
-    ...Fonts.black,
+    // color set dynamically in LunaTabBar
   },
 });
-

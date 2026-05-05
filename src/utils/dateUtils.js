@@ -312,22 +312,42 @@ export function isLeapDaySubscription(dateString) {
  * Get the notification message for an upcoming subscription
  */
 export function getNotificationMessage(sub, daysUntil) {
-  const amount = sub.amount.toFixed(2);
+  const billing = getNextBilling(sub);
+  const amount = Number(billing.nextChargeAmount ?? sub.amount ?? 0).toFixed(2);
+  const cycle = { weekly: 'hebdomadaire', monthly: 'mensuel', quarterly: 'trimestriel', annual: 'annuel' }[sub.cycle] || 'mensuel';
+  const targetDate = formatDateFull(billing.nextChargeDate);
+
+  if (billing.isTrial) {
+    if (daysUntil <= 0) {
+      return {
+        title: `${sub.name} passe en payant aujourd'hui`,
+        body: `Fin d'essai aujourd'hui. Ensuite ${amount} EUR en ${cycle}.`,
+      };
+    }
+
+    return {
+      title: `${sub.name} fin d'essai dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''}`,
+      body: `Essai gratuit jusqu'au ${targetDate}, puis ${amount} EUR en ${cycle}.`,
+    };
+  }
+
   if (daysUntil <= 0) {
     return {
       title: `${sub.name} aujourd'hui`,
-      body: `Prelevement prevu aujourd'hui: ${amount} EUR.`,
+      body: `Prelevement prevu aujourd'hui (${targetDate}) : ${amount} EUR, cycle ${cycle}.`,
     };
   }
+
   if (daysUntil === 1) {
     return {
       title: `${sub.name} demain`,
-      body: `Rappel: ${amount} EUR seront preleves demain.`,
+      body: `Rappel: ${amount} EUR seront preleves demain (${targetDate}), abonnement ${cycle}.`,
     };
   }
+
   return {
     title: `${sub.name} dans ${daysUntil} jours`,
-    body: `Prelevement a venir: ${amount} EUR.`,
+    body: `Prelevement prevu le ${targetDate}: ${amount} EUR, abonnement ${cycle}.`,
   };
 }
 

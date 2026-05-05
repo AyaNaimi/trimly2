@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -9,17 +9,40 @@ import {
   Text,
   TextInput,
   View,
+  Dimensions,
 } from 'react-native';
+import ColorPicker from 'react-native-wheel-color-picker';
 import { CATEGORY_COLORS } from '../../data/initialData';
-import { Colors, Fonts, Radius, Spacing, Shadow } from '../../theme';
+import { Fonts, Radius, Spacing, Shadow } from '../../theme';
 import { PremiumHaptics } from '../../utils/haptics';
+import { useTheme } from '../../context/ThemeContext';
 
-const EMOJIS = ['🛒', '🍽️', '☕', '🚇', '💊', '🧴', '📱', '🌐', '🏠', '💡', '🎬', '💪', '✈️', '🎮', '🏦', '👗', '🎉', '⛽', '🚗', '🏥'];
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const addAlpha = (hex, opacity) => {
+  if (!hex) return 'transparent';
+  let normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map(c => c + c).join('');
+  }
+  const op = Math.round(opacity * 255).toString(16).padStart(2, '0');
+  return `#${normalized}${op}`;
+};
+
+const EMOJI_CATEGORIES = [
+  { id: 'recent', label: 'Récents', icon: '🕒', items: ['💰', '🛒', '🍽️', '☕'] },
+  { id: 'smileys', label: 'Smileys', icon: '😊', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'] },
+  { id: 'finance', label: 'Finance', icon: '💳', items: ['💰', '💵', '💸', '💳', '🏦', '💹', '🪙', '📊', '📈', '📉', '🤑', '💎', '💼', '👜', '🛍️', '🛒', '📦', '🏷️', '🏧', '🧾'] },
+  { id: 'food', label: 'Alimentation', icon: '🍕', items: ['🍕', '🍔', '🍟', '🍎', '🍓', '🍰', '🍺', '🥤', '🍦', '🍳', '🥐', '🥖', '🥨', '🧀', '🍗', '🍖', '🌮', '🍣', '🍱', '🍜', '🍝', '🍲', '🥗', '🍿', '🍩', '🍪', '🍫', '🍬', '🍭', '🍮', '🍯', '🥛', '☕', '🍵', '🍶', '🥂', '🥃', '🍸', '🍹'] },
+  { id: 'transport', label: 'Transport', icon: '🚇', items: ['🚲', '🛵', '🚅', '✈️', '🚢', '🚀', '⛽', '🅿️', '🚧', '🗺️', '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '🏍️', '🚲', '🛴', '🛵', '🚠', '🚟', '🛶', '⛵', '🚁'] },
+  { id: 'leisure', label: 'Loisirs', icon: '🎮', items: ['🎮', '🎨', '🎸', '📷', '📚', '⚽', '🎾', '🎳', '🎯', '🎡', '🎭', '🎬', '🎹', '🎷', '🎺', '🎻', '🎤', '🎧', '📻', '📺', '📻', '🎞️', '🎟️', '🛹', '🛶', '🏊', '🏄', '🏌️', '🧗', '🚵', '🧘'] },
+  { id: 'home', label: 'Vie Quotidienne', icon: '🏠', items: ['🏠', '🏡', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '💒', '🗼', '🗽', '⛪', '🕌', '🕍', '🕋', '⛲', '⛺', '💊', '🧴', '📱', '🌐', '💡', '👗', '🎉', '💪', '🛍️', '🧼', '🧺', '🧹', '🪣', '🚿', '🛁', '🚽', '🛋️', '🪑', '🛏️'] },
+];
 
 const DEFAULT_VALUES = {
   name: '',
   icon: '💰',
-  color: Colors.accent,
+  color: '',
   type: 'expense',
   budget: '',
   cycle: 'monthly',
@@ -33,12 +56,25 @@ export default function AddCategoryModal({
   mode = 'create',
   onDelete,
 }) {
+  const { Colors } = useTheme();
   const [name, setName] = useState(DEFAULT_VALUES.name);
   const [icon, setIcon] = useState(DEFAULT_VALUES.icon);
   const [color, setColor] = useState(DEFAULT_VALUES.color);
   const [type, setType] = useState(DEFAULT_VALUES.type);
   const [amount, setAmount] = useState(DEFAULT_VALUES.budget);
   const [cycle, setCycle] = useState(DEFAULT_VALUES.cycle);
+
+  // Picker States
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState('smileys');
+  const [emojiSearch, setEmojiSearch] = useState('');
+  const [showColorWheel, setShowColorWheel] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!color && Colors?.accent) {
+      setColor(Colors.accent);
+    }
+  }, [Colors, color]);
 
   useEffect(() => {
     if (!visible) return;
@@ -58,6 +94,8 @@ export default function AddCategoryModal({
     setType(DEFAULT_VALUES.type);
     setAmount(DEFAULT_VALUES.budget);
     setCycle(DEFAULT_VALUES.cycle);
+    setEmojiSearch('');
+    setShowColorWheel(false);
   }
 
   function save() {
@@ -79,6 +117,14 @@ export default function AddCategoryModal({
     resetForm();
   }
 
+  const filteredEmojis = emojiSearch.length > 0
+    ? EMOJI_CATEGORIES.flatMap(c => c.items).filter(e => e.includes(emojiSearch)) // Note: simple search, could be improved with a dictionary
+    : EMOJI_CATEGORIES.find(c => c.id === activeEmojiCategory)?.items || [];
+
+
+
+  const styles = makeStyles(Colors);
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -87,100 +133,174 @@ export default function AddCategoryModal({
             <Pressable onPress={() => { PremiumHaptics.selection(); onClose(); }} style={styles.closeBtn}>
               <Text style={styles.closeTxt}>✕</Text>
             </Pressable>
-            <Text style={styles.headerTitle}>{mode === 'edit' ? 'Modifier la categorie' : 'Nouvelle categorie'}</Text>
+            <Text style={styles.headerTitle}>{mode === 'edit' ? 'Modifier' : 'Nouvelle catégorie'}</Text>
             <Pressable onPress={save} style={styles.createBtnBox}>
-              <Text style={styles.createTxt}>{mode === 'edit' ? 'Enregistrer' : 'Creer'}</Text>
+              <Text style={styles.createTxt}>{mode === 'edit' ? 'Enregistrer' : 'Créer'}</Text>
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} ref={scrollRef}>
+            {/* --- Hero Preview --- */}
             <View style={styles.previewBox}>
-              <View style={[styles.iconLarge, { backgroundColor: `${color}15` }]}>
-                <Text style={{ fontSize: 44 }}>{icon}</Text>
+              <View style={[styles.iconLarge, { backgroundColor: addAlpha(color, 0.12) }]}>
+                <Text style={{ fontSize: 48 }}>{icon}</Text>
               </View>
-              <Text style={styles.previewText}>{name || 'Nouvelle categorie'}</Text>
+              <View style={styles.previewTextWrapper}>
+                <TextInput
+                  style={styles.previewInput}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Nom de la catégorie..."
+                  placeholderTextColor={Colors.textMuted}
+                  autoFocus
+                />
+                <Text style={styles.previewSub}>{type === 'expense' ? 'Dépense mensuelle' : 'Objectif d\'épargne'}</Text>
+              </View>
             </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nom de la categorie</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Ex. Loisirs, Alimentation..."
-                placeholderTextColor={Colors.textSecondary}
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Configuration</Text>
-              <View style={styles.typeRow}>
+            {/* --- Config Section --- */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Configuration</Text>
+              <View style={styles.typeToggle}>
                 {['expense', 'savings'].map(item => (
                   <Pressable
                     key={item}
                     onPress={() => { PremiumHaptics.selection(); setType(item); }}
-                    style={[styles.typeBtn, type === item && styles.typeBtnActive]}
+                    style={[styles.typeBtn, type === item && { backgroundColor: Colors.accent, ...Shadow.sm }]}
                   >
-                    <Text style={[styles.typeTxt, type === item && styles.typeTxtActive]}>
-                      {item === 'expense' ? 'Depense' : 'Epargne'}
+                    <Text style={[styles.typeTxt, type === item && { color: Colors.pureWhite, ...Fonts.bold }]}>
+                      {item === 'expense' ? 'Dépense' : 'Épargne'}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
               <View style={styles.budgetRow}>
-                <View style={styles.amountBox}>
-                  <Text style={styles.currency}>EUR</Text>
+                <View style={styles.amountInputBox}>
+                  <Text style={styles.currencySymbol}>€</Text>
                   <TextInput
                     value={amount}
                     onChangeText={setAmount}
                     keyboardType="decimal-pad"
-                    placeholder="0"
-                    placeholderTextColor={Colors.textSecondary}
-                    style={styles.budgetInput}
+                    placeholder="0.00"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.mainAmountInput}
                   />
                 </View>
                 <Pressable
-                  onPress={() => { PremiumHaptics.selection(); setCycle(current => (current === 'weekly' ? 'monthly' : 'weekly')); }}
-                  style={styles.cycleBtn}
+                  onPress={() => { PremiumHaptics.selection(); setCycle(c => c === 'weekly' ? 'monthly' : 'weekly'); }}
+                  style={styles.cycleBadge}
                 >
-                  <Text style={styles.cycleTxt}>{cycle === 'weekly' ? 'Semaine' : 'Mois'}</Text>
+                  <Text style={styles.cycleBadgeTxt}>{cycle === 'weekly' ? 'Par semaine' : 'Par mois'}</Text>
                 </Pressable>
               </View>
             </View>
 
-            <Text style={styles.label}>Icone</Text>
-            <View style={styles.emojiGrid}>
-              {EMOJIS.map(item => (
-                <Pressable
-                  key={item}
-                  onPress={() => { PremiumHaptics.selection(); setIcon(item); }}
-                  style={[styles.emojiPill, icon === item && styles.emojiPillActive]}
-                >
-                  <Text style={{ fontSize: 22 }}>{item}</Text>
+            {/* --- Innovative Icon Picker --- */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Icône & Identité</Text>
+              <View style={styles.emojiPickerContainer}>
+                {/* Search Bar */}
+                <View style={styles.searchBar}>
+                  <Text style={styles.searchIcon}>🔍</Text>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Rechercher un emoji..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={emojiSearch}
+                    onChangeText={setEmojiSearch}
+                  />
+                </View>
+
+                {/* Categories Tabs (WhatsApp Style) */}
+                {!emojiSearch && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+                    {EMOJI_CATEGORIES.map(cat => (
+                      <Pressable
+                        key={cat.id}
+                        onPress={() => { PremiumHaptics.selection(); setActiveEmojiCategory(cat.id); }}
+                        style={[styles.tabItem, activeEmojiCategory === cat.id && styles.tabItemActive]}
+                      >
+                        <Text style={styles.tabIcon}>{cat.icon}</Text>
+                        <Text style={[styles.tabLabel, activeEmojiCategory === cat.id && styles.tabLabelActive]}>{cat.label}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
+
+                {/* Emoji Grid */}
+                <View style={styles.emojiGrid}>
+                  {filteredEmojis.map((item, idx) => (
+                    <Pressable
+                      key={`${item}-${idx}`}
+                      onPress={() => { PremiumHaptics.selection(); setIcon(item); }}
+                      style={[styles.emojiCell, icon === item && { backgroundColor: addAlpha(color || Colors.accent, 0.15), borderColor: color || Colors.accent }]}
+                    >
+                      <Text style={{ fontSize: 26 }}>{item}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* --- Premium Color Wheel --- */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>Couleur de la catégorie</Text>
+                <Pressable onPress={() => { PremiumHaptics.selection(); setShowColorWheel(!showColorWheel); }}>
+                  <Text style={styles.wheelToggleTxt}>{showColorWheel ? 'Palette simple' : 'Roue chromatique'}</Text>
                 </Pressable>
-              ))}
+              </View>
+
+              {!showColorWheel ? (
+                <View style={styles.colorPalette}>
+                  {CATEGORY_COLORS.map(c => (
+                    <Pressable
+                      key={c}
+                      onPress={() => { PremiumHaptics.selection(); setColor(c); }}
+                      style={[styles.colorBubble, { backgroundColor: c }, color === c && styles.colorBubbleActive]}
+                    />
+                  ))}
+                  <Pressable
+                    onPress={() => { PremiumHaptics.selection(); setShowColorWheel(true); }}
+                    style={styles.plusColorBtn}
+                  >
+                    <Text style={{ fontSize: 18, color: Colors.textSecondary }}>🎨</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.wheelContainer}>
+                  <ColorPicker
+                    color={color || '#5B3BF5'}
+                    onColorChange={setColor}
+                    thumbSize={26}
+                    sliderSize={26}
+                    noSnap={true}
+                    row={false}
+                  />
+                  <View style={styles.wheelFooter}>
+                    <View style={styles.hexBox}>
+                      <Text style={styles.hexHash}>#</Text>
+                      <TextInput
+                        style={styles.hexValue}
+                        value={color?.replace('#', '').toUpperCase()}
+                        onChangeText={(v) => setColor(`#${v.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6)}`)}
+                        maxLength={6}
+                      />
+                    </View>
+                    <View style={[styles.colorPreview, { backgroundColor: color }]} />
+                  </View>
+                </View>
+              )}
             </View>
 
-            <Text style={styles.label}>Palette de couleurs</Text>
-            <View style={styles.colorGrid}>
-              {CATEGORY_COLORS.map(item => (
-                <Pressable
-                  key={item}
-                  onPress={() => { PremiumHaptics.selection(); setColor(item); }}
-                  style={[styles.colorDot, { backgroundColor: item }, color === item && styles.colorDotActive]}
-                />
-              ))}
-            </View>
-
-            {mode === 'edit' && onDelete ? (
-              <Pressable onPress={onDelete} style={styles.deleteButton}>
-                <Text style={styles.deleteButtonText}>Supprimer la categorie</Text>
+            {mode === 'edit' && onDelete && (
+              <Pressable onPress={onDelete} style={styles.dangerZone}>
+                <Text style={styles.dangerText}>Supprimer cette catégorie</Text>
               </Pressable>
-            ) : null}
+            )}
 
-            <View style={{ height: 60 }} />
+            <View style={{ height: 100 }} />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -188,142 +308,188 @@ export default function AddCategoryModal({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-  },
-  headerTitle: { ...Fonts.sans, fontSize: 20, ...Fonts.bold, color: Colors.text, flex: 1, textAlign: 'center', marginHorizontal: 12 },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FAFAFA',
-  },
-  closeTxt: { fontSize: 14, color: '#666666' },
-  createBtnBox: {
-    backgroundColor: Colors.accent,
-    minWidth: 98,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.white },
-  scroll: { padding: 16 },
-  previewBox: {
-    alignItems: 'center',
-    marginBottom: 28,
-    marginTop: 4,
-    backgroundColor: Colors.white,
-    borderRadius: 24,
-    paddingVertical: 22,
-    paddingHorizontal: 16,
-    ...Shadow.soft,
-  },
-  iconLarge: {
-    width: 90,
-    height: 90,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    ...Shadow.sm,
-  },
-  previewText: { ...Fonts.sans, fontSize: 24, ...Fonts.bold, color: Colors.text, textAlign: 'center' },
-  label: {
-    ...Fonts.sans,
-    fontSize: 11,
-    ...Fonts.bold,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  fieldGroup: { marginBottom: 28 },
-  input: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: 16,
-    ...Fonts.sans,
-    fontSize: 16,
-    color: Colors.text,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 4,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  typeBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
-  typeBtnActive: { backgroundColor: Colors.white, ...Shadow.sm },
-  typeTxt: { ...Fonts.sans, fontSize: 14, ...Fonts.semiBold, color: Colors.textSecondary },
-  typeTxtActive: { color: Colors.text, ...Fonts.bold },
-  budgetRow: { flexDirection: 'row', gap: 12 },
-  amountBox: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  currency: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.textSecondary, marginRight: 8 },
-  budgetInput: { ...Fonts.serif, fontSize: 20, color: Colors.text, flex: 1 },
-  cycleBtn: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  cycleTxt: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.accent },
-  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 32 },
-  emojiPill: {
-    width: 54,
-    height: 54,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emojiPillActive: { borderColor: Colors.accent, backgroundColor: `${Colors.accent}10`, ...Shadow.sm },
-  colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  colorDot: { width: 32, height: 32, borderRadius: 16 },
-  colorDotActive: { borderWidth: 3, borderColor: Colors.text, transform: [{ scale: 1.1 }] },
-  deleteButton: {
-    marginTop: 8,
-    backgroundColor: Colors.errorSoft,
-    borderRadius: Radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  deleteButtonText: {
-    ...Fonts.sans,
-    fontSize: 14,
-    ...Fonts.bold,
-    color: Colors.error,
-  },
-});
+function makeStyles(Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.border,
+    },
+    headerTitle: { ...Fonts.sans, fontSize: 17, ...Fonts.bold, color: Colors.text },
+    closeBtn: { padding: 8, marginLeft: -8 },
+    closeTxt: { fontSize: 18, color: Colors.textMuted },
+    createBtnBox: {
+      backgroundColor: Colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    createTxt: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.pureWhite },
+    scroll: { padding: 20 },
+
+    // Hero
+    previewBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 32,
+      backgroundColor: Colors.surface,
+      padding: 20,
+      borderRadius: 24,
+      ...Shadow.soft,
+    },
+    iconLarge: {
+      width: 80,
+      height: 80,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 20,
+    },
+    previewTextWrapper: { flex: 1 },
+    previewInput: { ...Fonts.sans, fontSize: 22, ...Fonts.bold, color: Colors.text, padding: 0 },
+    previewSub: { ...Fonts.sans, fontSize: 13, color: Colors.textMuted, marginTop: 4 },
+
+    // Sections
+    section: { marginBottom: 32 },
+    sectionLabel: { ...Fonts.sans, fontSize: 12, ...Fonts.bold, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 },
+    sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+
+    // Config
+    typeToggle: {
+      flexDirection: 'row',
+      backgroundColor: Colors.surface,
+      borderRadius: 14,
+      padding: 4,
+      marginBottom: 16,
+    },
+    typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+    typeTxt: { ...Fonts.sans, fontSize: 14, color: Colors.textMuted },
+
+    budgetRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    amountInputBox: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.surface,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      height: 56,
+      borderWidth: 1,
+      borderColor: Colors.border,
+    },
+    currencySymbol: { ...Fonts.sans, fontSize: 20, ...Fonts.bold, color: Colors.textMuted, marginRight: 8 },
+    mainAmountInput: { ...Fonts.serif, fontSize: 24, color: Colors.text, flex: 1 },
+    cycleBadge: {
+      paddingHorizontal: 16,
+      height: 44,
+      backgroundColor: Colors.surface,
+      borderRadius: 22,
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: Colors.border,
+    },
+    cycleBadgeTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.accent },
+
+    // Emoji Picker (Innovative / WhatsApp Inspired)
+    emojiPickerContainer: {
+      backgroundColor: Colors.surface,
+      borderRadius: 24,
+      padding: 16,
+      ...Shadow.soft,
+      borderWidth: 1,
+      borderColor: Colors.border,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 44,
+      marginBottom: 16,
+    },
+    searchIcon: { fontSize: 14, marginRight: 8 },
+    searchInput: { flex: 1, ...Fonts.sans, fontSize: 14, color: Colors.text },
+    tabsScroll: { marginBottom: 16, paddingBottom: 4 },
+    tabItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      marginRight: 8,
+      backgroundColor: Colors.surface,
+    },
+    tabItemActive: { backgroundColor: addAlpha(Colors.accent, 0.15) },
+    tabIcon: { fontSize: 16, marginRight: 6 },
+    tabLabel: { ...Fonts.sans, fontSize: 12, color: Colors.textMuted },
+    tabLabelActive: { color: Colors.accent, ...Fonts.bold },
+    emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+    emojiCell: {
+      width: (SCREEN_WIDTH - 120) / 5,
+      height: (SCREEN_WIDTH - 120) / 5,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+
+    // Color Wheel
+    colorPalette: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    colorBubble: { width: 36, height: 36, borderRadius: 18 },
+    colorBubbleActive: { borderWidth: 3, borderColor: Colors.text, transform: [{ scale: 1.1 }] },
+    plusColorBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: Colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: Colors.border,
+    },
+    wheelToggleTxt: { ...Fonts.sans, fontSize: 12, color: Colors.accent, ...Fonts.bold },
+    wheelContainer: {
+      backgroundColor: Colors.surface,
+      borderRadius: 24,
+      padding: 24,
+      alignItems: 'center',
+      minHeight: 300,
+      ...Shadow.soft,
+    },
+    wheelFooter: {
+      flexDirection: 'row',
+      marginTop: 24,
+      width: '100%',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    hexBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: Colors.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 44,
+      flex: 1,
+      marginRight: 16,
+    },
+    hexHash: { ...Fonts.sans, fontSize: 16, ...Fonts.bold, color: Colors.textMuted, marginRight: 4 },
+    hexValue: { ...Fonts.sans, fontSize: 16, ...Fonts.bold, color: Colors.text, flex: 1, padding: 0 },
+    colorPreview: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
+
+    // Danger
+    dangerZone: {
+      marginTop: 8,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    dangerText: { ...Fonts.sans, fontSize: 14, color: Colors.error, ...Fonts.bold },
+  });
+}

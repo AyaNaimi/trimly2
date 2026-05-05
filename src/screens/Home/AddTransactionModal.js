@@ -3,12 +3,24 @@ import {
   View, Text, Modal, Pressable, TextInput, StyleSheet,
   ScrollView, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { Colors, Fonts, Radius, Spacing, Shadow } from '../../theme';
+import { Fonts, Radius, Spacing, Shadow } from '../../theme';
 import { PremiumHaptics } from '../../utils/haptics';
 import { formatDateFull, todayISO } from '../../utils/dateUtils';
 import DatePickerModal from '../../components/DatePickerModal';
 
+const addAlpha = (hex, opacity) => {
+  if (!hex) return 'transparent';
+  let normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map(c => c + c).join('');
+  }
+  const op = Math.round(opacity * 255).toString(16).padStart(2, '0');
+  return `#${normalized}${op}`;
+};
+
 import { useApp } from '../../context/AppContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AddTransactionModal({
   visible,
@@ -17,7 +29,9 @@ export default function AddTransactionModal({
   onSave,
   initialCategoryId: initial_category_id = '',
 }) {
+  const { Colors } = useTheme();
   const { state } = useApp();
+  const { t } = useLanguage();
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [category_id, setCategoryId] = useState(categories[0]?.id || '');
@@ -138,6 +152,7 @@ export default function AddTransactionModal({
     setCategoryQuery('');
   }
 
+  const styles = makeStyles(Colors);
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -146,29 +161,29 @@ export default function AddTransactionModal({
             <Pressable onPress={() => { PremiumHaptics.selection(); onClose(); }} style={styles.closeBtn}>
               <Text style={styles.closeTxt}>✕</Text>
             </Pressable>
-            <Text style={styles.headerTitle}>Transaction</Text>
+            <Text style={styles.headerTitle}>{t('transactions.addTransaction')}</Text>
             <Pressable onPress={save} style={styles.saveBtnBox}>
-              <Text style={styles.saveTxt}>Enregistrer</Text>
+              <Text style={styles.saveTxt}>{t('common.save')}</Text>
             </Pressable>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
             <View style={styles.typeRow}>
-              {['expense', 'income'].map(t => (
+              {['expense', 'income'].map(txType => (
                 <Pressable
-                  key={t}
-                  onPress={() => { PremiumHaptics.selection(); setType(t); }}
-                  style={[styles.typeBtn, type === t && styles.typeBtnActive]}
+                  key={txType}
+                  onPress={() => { PremiumHaptics.selection(); setType(txType); }}
+                  style={[styles.typeBtn, type === txType && styles.typeBtnActive]}
                 >
-                  <Text style={[styles.typeTxt, type === t && styles.typeTxtActive]}>
-                    {t === 'expense' ? 'Dépense' : 'Revenu'}
+                  <Text style={[styles.typeTxt, type === txType && styles.typeTxtActive]}>
+                    {txType === 'expense' ? t('transactions.expense') : t('transactions.income')}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Montant</Text>
+              <Text style={styles.label}>{t('transactions.amount')}</Text>
               <View style={{ 
                 flexDirection: 'row', 
                 alignItems: 'center', 
@@ -194,7 +209,7 @@ export default function AddTransactionModal({
 
             <View style={styles.fieldGroup}>
               <View style={styles.categoryHeader}>
-                <Text style={styles.label}>Categorie</Text>
+                <Text style={styles.label}>{t('transactions.category')}</Text>
                 <View style={styles.categorySearchRow}>
                   <Animated.View
                     style={[
@@ -211,7 +226,7 @@ export default function AddTransactionModal({
                       style={styles.searchInput}
                       value={categoryQuery}
                       onChangeText={setCategoryQuery}
-                      placeholder="Rechercher"
+                      placeholder={t('transactions.searchCategories')}
                       placeholderTextColor={Colors.textSecondary}
                     />
                   </Animated.View>
@@ -234,7 +249,7 @@ export default function AddTransactionModal({
                           <Text style={styles.categoryCheckText}>✓</Text>
                         </View>
                       ) : null}
-                      <View style={styles.categoryIcon}>
+                      <View style={[styles.categoryIcon, { backgroundColor: addAlpha(cat.color || Colors.accent, 0.12) }]}>
                         <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
                       </View>
                       <Text style={[styles.categoryName, category_id === cat.id && styles.categoryNameActive]} numberOfLines={1}>{cat.name}</Text>
@@ -253,18 +268,18 @@ export default function AddTransactionModal({
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>{t('transactions.note')}</Text>
               <TextInput
                 style={styles.input}
                 value={note}
                 onChangeText={setNote}
-                placeholder="Ex. Cafe, shopping, loyer..."
+                placeholder={t('modals.addTransaction.notePlaceholder')}
                 placeholderTextColor={Colors.textSecondary}
               />
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Date</Text>
+              <Text style={styles.label}>{t('transactions.date')}</Text>
               <Pressable
                 style={styles.dateButton}
                 onPress={() => {
@@ -286,18 +301,18 @@ export default function AddTransactionModal({
         value={date}
         onChange={setDate}
         onClose={() => setShowDatePicker(false)}
-        title="Date de transaction"
+        title={t('modals.addTransaction.dateTitle')}
       />
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.bg,
   },
   headerTitle: { ...Fonts.sans, fontSize: 20, ...Fonts.bold, color: Colors.text },
   closeBtn: {
@@ -306,19 +321,20 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: Colors.surface,
   },
-  closeTxt: { fontSize: 14, color: '#666666' },
+  closeTxt: { fontSize: 14, color: Colors.textSecondary },
   saveBtnBox: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.accent,
     minWidth: 98,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadow.md,
   },
-  saveTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.white },
+  saveTxt: { ...Fonts.sans, fontSize: 13, ...Fonts.bold, color: Colors.pureWhite },
 
   scroll: { padding: 16 },
 
@@ -327,7 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: 18, padding: 4, marginBottom: 24, borderWidth: 1, borderColor: Colors.border,
   },
   typeBtn: { flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center' },
-  typeBtnActive: { backgroundColor: Colors.white, ...Shadow.sm },
+  typeBtnActive: { backgroundColor: Colors.surface, ...Shadow.sm },
   typeTxt: { ...Fonts.sans, fontSize: 14, ...Fonts.semiBold, color: Colors.textSecondary },
   typeTxtActive: { color: Colors.text, ...Fonts.bold },
 
@@ -337,7 +353,6 @@ const styles = StyleSheet.create({
   },
   fieldGroup: { marginBottom: 24 },
   amountInput: { flex: 1, ...Fonts.serif, fontSize: 24, color: Colors.text },
-  currency: { ...Fonts.serif, fontSize: 18, color: Colors.textSecondary, marginLeft: 10 },
 
   categoryHeader: {
     flexDirection: 'row',
@@ -351,13 +366,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchIcon: { ...Fonts.sans, fontSize: 16, ...Fonts.bold, color: Colors.text },
   searchInput: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -374,7 +389,7 @@ const styles = StyleSheet.create({
     width: '23%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     paddingVertical: 10,
     paddingHorizontal: 4,
@@ -398,7 +413,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryCheckText: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.white },
+  categoryCheckText: { ...Fonts.sans, fontSize: 10, ...Fonts.bold, color: Colors.pureWhite },
   categoryIcon: {
     width: 34,
     height: 34,
@@ -415,7 +430,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     marginTop: 2,
   },
   moreDotsText: {
@@ -428,14 +443,14 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 16,
+    backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: 16,
     ...Fonts.sans, fontSize: 16, color: Colors.text, borderWidth: 1, borderColor: Colors.border,
   },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -444,4 +459,4 @@ const styles = StyleSheet.create({
   },
   dateValue: { ...Fonts.sans, fontSize: 15, ...Fonts.semiBold, color: Colors.text },
   dateIcon: { fontSize: 16, color: Colors.textSecondary },
-});
+}); }

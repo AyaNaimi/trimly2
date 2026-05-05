@@ -9,9 +9,10 @@ import {
   TextInput,
   Dimensions,
 } from 'react-native';
-import { Colors, Fonts, Layout, Radius, Shadow } from '../../theme';
+import { Fonts, Layout, Radius, Shadow } from '../../theme';
 import { PremiumHaptics } from '../../utils/haptics';
 import { useApp } from '../../context/AppContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -55,7 +56,7 @@ const ONBOARDING_CAT_GROUPS = [
 
 // ── Sub-components moved outside to fix focus loss ──
 
-const Progress = ({ step }) => (
+const Progress = ({ step, Colors, styles }) => (
   <View style={styles.progressContainer}>
     {[0, 1, 2].map((i) => (
       <View 
@@ -69,7 +70,7 @@ const Progress = ({ step }) => (
   </View>
 );
 
-const StepCategories = ({ selectedCats, toggleCat }) => (
+const StepCategories = ({ selectedCats, toggleCat, styles }) => (
   <View style={[styles.unifiedCard, { margin: 10 }]}>
     <Text style={[styles.h1, { ...Fonts.serif, marginBottom: 8 }]}>Votre style analytique</Text>
     <Text style={[styles.sub, { marginBottom: 24 }]}>Identifiez les flux qui structurent votre quotidien financier.</Text>
@@ -99,7 +100,7 @@ const StepCategories = ({ selectedCats, toggleCat }) => (
   </View>
 );
 
-const BudgetRow = ({ name, value, onValueChange, icon }) => {
+const BudgetRow = ({ name, value, onValueChange, icon, Colors, styles }) => {
   const inputRef = useRef(null);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -133,7 +134,7 @@ const BudgetRow = ({ name, value, onValueChange, icon }) => {
   );
 };
 
-const StepBudgets = ({ income, setIncome, currency, setCurrency, selectedCats, budgets, setBudgets }) => {
+const StepBudgets = ({ income, setIncome, currency, setCurrency, selectedCats, budgets, setBudgets, Colors, styles }) => {
   const [isIncomeFocused, setIsIncomeFocused] = useState(false);
   const totalAllocated = Object.values(budgets).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
   const incomeNum = parseFloat(income) || 0;
@@ -202,6 +203,8 @@ const StepBudgets = ({ income, setIncome, currency, setCurrency, selectedCats, b
               icon={item?.icon}
               value={budgets[name]}
               onValueChange={v => setBudgets(prev => ({ ...prev, [name]: v }))}
+              Colors={Colors}
+              styles={styles}
             />
           );
         })}
@@ -210,7 +213,7 @@ const StepBudgets = ({ income, setIncome, currency, setCurrency, selectedCats, b
   );
 };
 
-const StepNotifications = ({ notifLevel, setNotifLevel }) => {
+const StepNotifications = ({ notifLevel, setNotifLevel, Colors, styles }) => {
   const opts = [
     { level: 0, emoji: '🤫', title: "Le Concierge", desc: "Discret et efficace. Luna ne vous alerte que pour les flux critiques." },
     { level: 1, emoji: '🤠', title: "Le Coach", desc: "Un accompagnement quotidien positif pour garder le cap." },
@@ -257,7 +260,7 @@ const StepNotifications = ({ notifLevel, setNotifLevel }) => {
   );
 };
 
-const StepWelcome = () => (
+const StepWelcome = ({ Colors, styles }) => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', marginBottom: 40 }}>
       <Text style={{ fontSize: 50 }}>🌱</Text>
@@ -279,6 +282,7 @@ export default function OnboardingScreen({ navigation }) {
     addCategory, 
     state 
   } = useApp();
+  const { Colors } = useTheme();
 
   const [step, setStep] = useState(0);
   const [selectedCats, setSelectedCats] = useState(['Loyer', 'Courses']);
@@ -341,13 +345,15 @@ export default function OnboardingScreen({ navigation }) {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepCategories selectedCats={selectedCats} toggleCat={toggleCat} />;
-      case 1: return <StepBudgets income={income} setIncome={setIncome} currency={currency} setCurrency={setCurrency} selectedCats={selectedCats} budgets={budgets} setBudgets={setBudgets} />;
-      case 2: return <StepNotifications notifLevel={notifLevel} setNotifLevel={setNotifLevel} />;
-      case 3: return <StepWelcome />;
+      case 0: return <StepCategories selectedCats={selectedCats} toggleCat={toggleCat} styles={styles} />;
+      case 1: return <StepBudgets income={income} setIncome={setIncome} currency={currency} setCurrency={setCurrency} selectedCats={selectedCats} budgets={budgets} setBudgets={setBudgets} Colors={Colors} styles={styles} />;
+      case 2: return <StepNotifications notifLevel={notifLevel} setNotifLevel={setNotifLevel} Colors={Colors} styles={styles} />;
+      case 3: return <StepWelcome Colors={Colors} styles={styles} />;
       default: return null;
     }
   };
+
+  const styles = makeStyles(Colors);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -355,7 +361,7 @@ export default function OnboardingScreen({ navigation }) {
         <Pressable onPress={prevStep} style={styles.navBtn}>
           {step > 0 ? <Text style={styles.navText}>←</Text> : <View style={{ width: 24 }} />}
         </Pressable>
-        <Progress step={step} />
+        <Progress step={step} Colors={Colors} styles={styles} />
         <View style={{ width: 44 }} />
       </View>
 
@@ -375,7 +381,7 @@ export default function OnboardingScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg, paddingHorizontal: 28 },
   header: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
@@ -391,7 +397,7 @@ const styles = StyleSheet.create({
   },
   nextBtn: { 
     width: 64, height: 64, borderRadius: 32, alignItems: 'center', 
-    justifyContent: 'center', backgroundColor: '#084A62',
+    justifyContent: 'center', backgroundColor: Colors.accent,
     ...Shadow.medium
   },
   nextText: { color: Colors.white, fontSize: 28, fontWeight: '300' },
@@ -463,4 +469,4 @@ const styles = StyleSheet.create({
     ...Fonts.bold,
     color: Colors.textSecondary
   }
-});
+}); }

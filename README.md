@@ -1,129 +1,136 @@
-# Trimly — App Mobile Complète
-> Budget + Abonnements en une seule app. Inspirée du design Luna.
+# Trimly
 
-## Stack Technique
-- **React Native + Expo** (SDK 51)
-- **React Navigation** (Bottom Tabs + Stack)
-- **AsyncStorage** (persistance locale)
-- **expo-notifications** (alertes prélèvements)
-- **expo-haptics** (micro-vibrations)
-- **React Native Reanimated** (animations)
+Trimly is a mobile budgeting app built with React Native and Expo. It combines daily budget tracking, subscription monitoring, recurring payment reminders, email-based subscription detection, and multilingual onboarding in one app.
 
-## Installation
+## Tech Stack
+
+- React Native 0.81 and Expo SDK 54
+- React 19
+- React Navigation with stack and bottom tabs
+- AsyncStorage for local persistence
+- Supabase for authentication, profile data, sync, and edge functions
+- Expo Notifications for billing and spending reminders
+- Expo Auth Session for Google OAuth and Gmail access
+- Lottie for animated splash and UI assets
+- Victory Native, Skia, and SVG for reports and charts
+
+## Main Features
+
+- Budget dashboard with income, categories, spending progress, and quick transaction entry
+- Category management with weekly and monthly budget periods
+- Subscription manager with billing cycles, trials, cancellation state, and next charge insights
+- Email scanner flow for detecting subscriptions from Gmail or manual scans
+- Reports screen for spending and subscription analytics
+- Transaction history with category-aware updates
+- Login, guest mode, onboarding, and synced user state
+- Light/dark theme support
+- Language support for English, French, Spanish, German, Portuguese, and Italian
+- Local and push-style notifications for upcoming payments and daily spending reminders
+
+## Getting Started
 
 ```bash
-cd trimly
 npm install
-npx expo start
+npm start
 ```
 
-Pour iOS : `npm run ios`  
-Pour Android : `npm run android`
+Useful scripts:
 
----
-
-## Structure du projet
-
+```bash
+npm run android
+npm run ios
+npm run web
+npm run check-translations
 ```
+
+## Environment Variables
+
+Create a local `.env` file for secrets and public Expo config. The file is ignored by Git.
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=
+EXPO_PUBLIC_GMAIL_CLIENT_ID=
+EXPO_PUBLIC_OUTLOOK_CLIENT_ID=
+EXPO_PUBLIC_EMAIL_SCANNER_URL=http://localhost:3001
+```
+
+Google and Firebase platform config files may also be needed for native builds:
+
+- `google-services.json` for Android
+- `GoogleService-Info.plist` for iOS
+
+See `ANDROID_GOOGLE_AUTH_SETUP.md`, `GOOGLE_AUTH_GMAIL_SETUP.md`, and `TEST_AUTH.md` for auth setup notes.
+
+## Project Structure
+
+```text
 trimly/
-├── App.js                          # Entrée principale
-├── src/
-│   ├── theme/index.js              # Couleurs, typographie, shadows
-│   ├── context/AppContext.js       # State global (useReducer)
-│   ├── utils/
-│   │   ├── dateUtils.js            # Logique dates (years bissextiles, trials, cycles)
-│   │   └── notifications.js       # Scheduler notifications
-│   ├── data/initialData.js         # Données initiales, quicksubs, couleurs
-│   ├── components/index.js         # Composants réutilisables
-│   ├── navigation/AppNavigator.js  # Navigation (Tab + Stack)
-│   └── screens/
-│       ├── Onboarding/             # 4 étapes d'onboarding
-│       ├── Home/                   # Dashboard budget
-│       ├── Subscriptions/          # Gestion abonnements + Death Chart
-│       ├── Transactions/           # Historique transactions
-│       ├── Reports/                # Graphiques & rapports
-│       └── Settings/               # Paramètres + Paywall
+|-- App.js
+|-- app.json
+|-- package.json
+|-- src/
+|   |-- components/
+|   |-- context/
+|   |   |-- AppContext.js
+|   |   |-- LanguageContext.js
+|   |   `-- ThemeContext.js
+|   |-- data/
+|   |-- hooks/
+|   |-- locales/
+|   |-- navigation/
+|   |-- screens/
+|   |   |-- Auth/
+|   |   |-- Home/
+|   |   |-- Onboarding/
+|   |   |-- Reports/
+|   |   |-- Settings/
+|   |   |-- Splash/
+|   |   |-- Subscriptions/
+|   |   |-- Transactions/
+|   |   `-- __tests__/
+|   |-- services/
+|   |-- theme/
+|   `-- utils/
+|-- supabase/
+|   `-- functions/
+|       `-- scan-emails/
+`-- scripts/
 ```
 
----
+## App Flow
 
-## Fonctionnalités implémentées
+1. App starts with the animated splash screen.
+2. Users can log in with Supabase/Google or continue in guest mode.
+3. First-time users complete onboarding and budget setup.
+4. The main app opens to the budget dashboard with tabs for reports, transactions, subscriptions, and settings.
+5. Subscription edits trigger notification scheduling and local state persistence.
+6. Authenticated users can sync profile, budget, transaction, subscription, and scan data.
 
-### Budget (inspiré Luna)
-- Catégories hebdomadaires et mensuelles
-- Barre de progression colorée (vert → orange → rouge)
-- Ajout de transactions avec catégories
-- Onboarding : sélection catégories par groupes + allocation budget
-- Suggestion de montants basée sur le revenu (règle 50/20/30)
+## Email Subscription Scanning
 
-### Abonnements (Trimly)
-- Death Chart 12 mois (projection réelle)
-- Badge rouge si prélèvement ≤ 2 jours
-- Alerte bannière sur le Home
-- Bouton "Générer lettre de résiliation"
-- Filtres : Tous / Actifs / Essais / Résiliés
-- Quick-add : 15+ services populaires
+Trimly supports email subscription discovery through shared services and a Supabase edge function:
 
-### Logique de dates — tous les cas gérés
-- **Années bissextiles** : 29 fév. → 28 fév. en année non-bissextile
-- **Mois courts** : 31 jan + 1 mois = 28/29 fév., pas le 3 mars
-- **Essais gratuits** : $0 pendant N jours, puis premier prélèvement
-- **Cycles** : hebdomadaire, mensuel, trimestriel, annuel
-- **Projection 12 mois** : calcule chaque prélèvement futur sur 12 mois
+- OAuth scopes are configured in `src/services/googleAuthService.js`.
+- Subscription normalization and insights live in `src/services/emailService.js`.
+- The Supabase edge function is in `supabase/functions/scan-emails/`.
 
-### Notifications
-- 2 jours avant chaque prélèvement
-- 1 jour avant chaque prélèvement
-- Jour du prélèvement
-- 3 jours avant fin d'essai gratuit
-- Rappels quotidiens dépenses (4 niveaux : silencieux → implacable)
+The scanner estimates service name, price, billing cycle, trial state, next billing date, and suggested alternatives when available.
 
-### Monétisation
-- Essai gratuit 14 jours (sans carte)
-- Paywall avec 3 plans : 4,99€/mois · 49,99€/an · 149,99€ une fois
-- Bannière trial sur Home
-- Détection expiration essai
+## Notifications
 
----
+Notifications are scheduled when subscription data changes:
 
-## Logique dates — exemples concrets
+- Two days before a charge
+- One day before a charge
+- On the charge date
+- Before trial expiration when trial data is available
+- Daily spending reminders based on the selected notification level
 
-```js
-// Abonnement pris le 31 janvier
-addMonths('2026-01-31', 1) → '2026-02-28' (pas le 3 mars !)
+## Development Notes
 
-// Abonnement pris le 29 février (année bissextile)
-addYears('2024-02-29', 1) → '2025-02-28' (non-bissextile)
-addYears('2024-02-29', 4) → '2028-02-29' (bissextile)
-
-// Essai gratuit 30 jours commencé le 1er mars
-// → Gratuit jusqu'au 31 mars
-// → Premier prélèvement le 1er avril
-// → Prochain prélèvement calculé depuis le 1er avril
-
-// Projection 12 mois
-// Netflix 15,99€/mois → 12 mois × 15,99 = 191,88€ dans la Death Chart
-// Amazon Prime 69,99€/an → 1 occurrence dans l'année
-```
-
----
-
-## Notifications — architecture
-
-Les notifications sont schedulées à chaque modification des abonnements :
-1. Pour chaque abonnement actif, on calcule `getNextBilling(sub)`
-2. On programme 3 notifications : J-2, J-1, J-0 à 9h00
-3. Si essai en cours ≤ 7j : notification J-3 avant fin d'essai
-4. Les rappels quotidiens sont des triggers répétitifs (heure fixe)
-
----
-
-## Design System
-
-Fidèle à Luna :
-- **Fond** : `#F7F7FA` (gris clair)
-- **Accent** : `#5B3BF5` (violet)
-- **Cartes** : blanc avec bordure `1.5px #EEEEF2`
-- **Typographie** : Nunito (800/700/600)
-- **Radius** : 14px pour les lignes, 20px pour les grandes cartes
-- **Animations** : spring sur press (scale 0.97), slide sur navigation
+- Keep `.env` out of Git.
+- Run `npm run check-translations` after editing locale files.
+- Use Expo commands for local development and native testing.
+- Generated folders such as `node_modules/` should stay untracked.

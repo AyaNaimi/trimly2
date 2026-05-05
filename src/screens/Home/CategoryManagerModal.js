@@ -10,14 +10,20 @@ import {
   View,
 } from 'react-native';
 import AddCategoryModal from './AddCategoryModal';
-import { Colors, Fonts, Shadow } from '../../theme';
+import { Fonts, Shadow } from '../../theme';
 import { PremiumHaptics } from '../../utils/haptics';
 import { useApp } from '../../context/AppContext';
+import { useTheme } from '../../context/ThemeContext';
 
-const SUCCESS_GREEN = '#16A34A';
-const SUCCESS_SOFT = 'rgba(22, 163, 74, 0.12)';
-const ERROR_RED = '#DC2626';
-const ERROR_SOFT = 'rgba(220, 38, 38, 0.14)';
+const addAlpha = (hex, opacity) => {
+  if (!hex) return 'transparent';
+  let normalized = hex.replace('#', '');
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map(c => c + c).join('');
+  }
+  const op = Math.round(opacity * 255).toString(16).padStart(2, '0');
+  return `#${normalized}${op}`;
+};
 
 function formatBudget(amount, currency = '€') {
   return `${Number(amount || 0).toFixed(0)} ${currency}`;
@@ -47,12 +53,14 @@ function ExpandableCategoryRow({
   onUpdateField,
   currency = '€',
 }) {
+  const { Colors } = useTheme();
+  const styles = makeStyles(Colors);
   return (
     <View style={[styles.categoryCard, isExpanded && styles.categoryCardExpanded]}>
       <View style={styles.row}>
         <View style={styles.leftPart}>
           <View style={styles.iconWrap}>
-            <View style={[styles.iconCircle, { backgroundColor: category.color || Colors.accent }]}>
+            <View style={[styles.iconCircle, { backgroundColor: addAlpha(category.color || Colors.accent, 0.12) }]}>
               <Text style={styles.iconText}>{category.icon}</Text>
             </View>
             <Pressable style={styles.editBadge} onPress={() => onOpenEditor(category)}>
@@ -164,6 +172,7 @@ export default function CategoryManagerModal({
   onUpdateCategory,
   onOpenCategory,
 }) {
+  const { Colors } = useTheme();
   const { state } = useApp();
   const currency = state.currency || '€';
   const [editingBudgetId, setEditingBudgetId] = useState(null);
@@ -230,6 +239,7 @@ export default function CategoryManagerModal({
     });
   }
 
+  const styles = makeStyles(Colors);
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.container}>
@@ -331,7 +341,7 @@ export default function CategoryManagerModal({
                     onChangeText={setSalary}
                     keyboardType="decimal-pad"
                     placeholder={`${currency} 0`}
-                    placeholderTextColor="#A5A5B0"
+                    placeholderTextColor={Colors.textMuted}
                     style={styles.sheetInput}
                   />
                   {salaryPlan ? (
@@ -381,7 +391,7 @@ export default function CategoryManagerModal({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(Colors) { return StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: Colors.white },
   header: {
@@ -397,15 +407,15 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: SUCCESS_SOFT,
+    backgroundColor: addAlpha(Colors.income, 0.12),
     borderWidth: 1,
-    borderColor: 'rgba(22, 163, 74, 0.18)',
+    borderColor: addAlpha(Colors.income, 0.2),
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  doneIcon: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: SUCCESS_GREEN },
-  doneText: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: SUCCESS_GREEN },
+  doneIcon: { ...Fonts.sans, fontSize: 14, ...Fonts.bold, color: Colors.income },
+  doneText: { ...Fonts.sans, fontSize: 15, ...Fonts.bold, color: Colors.income },
   scroll: { paddingHorizontal: 12, paddingBottom: 20 },
   banner: {
     backgroundColor: Colors.surface,
@@ -534,11 +544,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ERROR_SOFT,
+    backgroundColor: addAlpha(Colors.expense, 0.12),
     borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.18)',
+    borderColor: addAlpha(Colors.expense, 0.2),
   },
-  deleteActionIcon: { fontSize: 16, color: ERROR_RED },
+  deleteActionIcon: { fontSize: 16, color: Colors.expense },
   addButton: {
     borderWidth: 1,
     borderColor: Colors.borderStrong,
@@ -550,7 +560,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: { ...Fonts.sans, fontSize: 15, color: Colors.textMuted },
   bottomSpace: { height: 32 },
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'flex-end' },
+  sheetBackdrop: { flex: 1, backgroundColor: Colors.backdrop, justifyContent: 'flex-end' },
   sheetBackdropTouch: { flex: 1 },
   sheet: {
     backgroundColor: Colors.white,
@@ -566,7 +576,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#D6D6DC',
+    backgroundColor: Colors.borderStrong,
     marginBottom: 14,
   },
   sheetEmoji: {
@@ -584,7 +594,7 @@ const styles = StyleSheet.create({
     width: 122,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DADCE5',
+    borderColor: Colors.borderStrong,
     paddingHorizontal: 14,
     paddingVertical: 12,
     ...Fonts.sans,
@@ -601,10 +611,10 @@ const styles = StyleSheet.create({
   sheetResult: { ...Fonts.sans, fontSize: 15, ...Fonts.medium, color: Colors.text, marginBottom: 8 },
   sheetCta: {
     marginTop: 'auto',
-    backgroundColor: '#F59E0B',
+    backgroundColor: Colors.warning,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  sheetCtaText: { ...Fonts.sans, fontSize: 17, ...Fonts.bold, color: '#1F2937' },
-});
+  sheetCtaText: { ...Fonts.sans, fontSize: 17, ...Fonts.bold, color: Colors.pureWhite },
+}); }
