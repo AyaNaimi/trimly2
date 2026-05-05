@@ -231,7 +231,7 @@ export default function SettingsScreen() {
         <View style={s.avatarRow}>
           <View style={s.avatar}>
             <Image
-              source={require('../../../assets/mascot.png')}
+              source={require('../../../assets/mascot.jpg')}
               style={{ width: 64, height: 64, borderRadius: 32 }}
               resizeMode="cover"
             />
