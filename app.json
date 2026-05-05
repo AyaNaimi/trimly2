@@ -60,7 +60,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/icon.png",
+      "favicon": "./assets/logo.png",
       "shortName": "Trimly",
       "name": "Trimly",
       "display": "standalone",

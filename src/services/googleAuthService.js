@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 const GOOGLE_PROVIDER_STORAGE_KEY = '@trimly_google_provider_tokens';
 
@@ -12,6 +13,17 @@ export const GOOGLE_GMAIL_SCOPES = [
 ];
 
 export function getGoogleRedirectUri() {
+  // Ne pas modifier en local (__DEV__)
+  if (!__DEV__) {
+    if (Platform.OS === 'web') {
+      // En production web, l'URL de redirection est le domaine actuel
+      return window.location.origin;
+    }
+    // En production mobile (APK/AAB/IPA), la redirection stricte
+    return 'trimly://auth/callback';
+  }
+
+  // Comportement local (Expo Go / Dev) conservé
   const redirectUri = makeRedirectUri({
     scheme: 'trimly',
     path: 'auth/callback',
